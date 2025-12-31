@@ -1,0 +1,65 @@
+教育平台问题修复 - 快速指南
+==============================
+
+【问题】
+报错.md中描述的所有问题：
+1. 数据库表缺少deleted字段导致MyBatis Plus报错
+2. 密码长度限制导致无法使用短密码
+3. admin密码需要改为adminadmin
+4. 用户123密码需要改为123
+
+【解决方案】
+只需执行以下步骤：
+
+步骤1：执行数据库修复
+----------------------
+mysql -u root -p education_platform < E:\shixun\backend\database\FINAL_FIX.sql
+
+步骤2：编译后端
+----------------------
+cd E:\shixun\backend
+mvn clean compile
+mvn spring-boot:run
+
+步骤3：修改前端（3个文件）
+----------------------
+删除以下内容：
+
+文件1: E:\shixun\frontend\src\views\Login.vue
+  删除第79行：{ min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
+
+文件2: E:\shixun\frontend\src\views\Register.vue
+  删除第129行：{ min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
+
+文件3: E:\shixun\frontend\src\views\campus\Profile.vue
+  删除第155-156行：
+    else if (value.length < 6) {
+      callback(new Error('密码长度不能少于6位'))
+    }
+
+【登录信息】
+Admin: admin / adminadmin
+用户123: 123 / 123
+
+【一键脚本】
+也可以直接运行：E:\shixun\最终修复.bat
+（但仍需手动修改前端3个文件）
+
+【验证】
+登录后测试：
+1. 仪表盘 - 应无报错
+2. 个人信息 - 应显示用户信息
+3. 班级信息 - 应无"服务器内部错误"
+4. 课程表 - 应无"加载失败"
+5. 成绩 - 应无"加载失败"
+6. 公告 - 应无"加载失败"
+7. 密码长度 - 使用1位密码也能登录
+
+【说明】
+FIX_ALL.sql 已包含：
+- 添加17个表的deleted字段
+- 设置admin密码为adminadmin
+- 创建用户123密码为123
+- 创建示例数据（学校、班级、课程表、成绩、公告）
+
+所有问题将一次性解决！

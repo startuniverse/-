@@ -1,0 +1,68 @@
+教育平台修复执行说明
+========================
+
+问题：报错.md中描述的所有问题
+
+修复步骤（按顺序执行）：
+
+【第一步】添加deleted字段
+----------------------------
+命令：
+mysql -u root -p education_platform < E:\shixun\backend\database\FIX_DELETED.sql
+
+说明：如果某些字段已存在，会显示错误但不影响继续
+
+【第二步】修复密码和创建数据
+----------------------------
+命令：
+mysql -u root -p education_platform < E:\shixun\backend\database\FIX_ALL.sql
+
+说明：设置admin密码为adminadmin，创建用户123密码为123，创建示例数据
+
+【第三步】编译后端
+----------------------------
+命令：
+cd E:\shixun\backend
+mvn clean compile
+
+说明：确保代码编译通过
+
+【第四步】启动应用
+----------------------------
+命令：
+mvn spring-boot:run
+
+说明：启动后端服务
+
+【第五步】修改前端（3个文件）
+----------------------------
+1. E:\shixun\frontend\src\views\Login.vue
+   删除第79行：{ min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
+
+2. E:\shixun\frontend\src\views\Register.vue
+   删除第129行：{ min: 6, message: '密码长度不能少于6位', trigger: 'blur' }
+
+3. E:\shixun\frontend\src\views\campus\Profile.vue
+   删除第155-156行：else if (value.length < 6) { callback(new Error('密码长度不能少于6位')) }
+
+【第六步】测试
+----------------------------
+登录账号：
+- admin / adminadmin
+- 123 / 123
+
+测试功能：
+1. 登录
+2. 仪表盘
+3. 个人信息
+4. 班级信息
+5. 课程表
+6. 成绩查询
+7. 通知公告
+8. 使用短密码登录（如1位）
+
+快捷修复：
+直接运行：E:\shixun\修复步骤.bat
+（但仍需手动修改前端3个文件）
+
+详细说明：E:\shixun\最终修复说明.md

@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mvn clean compile:*)",
+      "Bash(findstr:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(del \"E:\\\\shixun\\\\backend\\\\src\\\\main\\\\java\\\\com\\\\education\\\\platform\\\\config\\\\MybatisPlusConfig.java\")",
+      "Bash(mvn clean:*)",
+      "Bash(mysql:*)",
+      "Bash(cat:*)",
+      "Bash(find:*)",
+      "Bash(dir:*)",
+      "Bash(mvn exec:java:*)",
+      "Bash(mvn compile:*)",
+      "Bash(java:*)",
+      "Bash(echo:*)",
+      "Bash(npm run build)"
+    ]
+  }
+}
