@@ -267,23 +267,39 @@ onMounted(() => {
 .edit-card,
 .password-card {
   margin-bottom: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 10px;
+  border: 1px solid rgba(64, 158, 255, 0.15);
+  transition: all 0.3s ease;
+}
+
+.profile-card:hover,
+.edit-card:hover,
+.password-card:hover {
+  box-shadow: 0 6px 20px rgba(64, 158, 255, 0.15);
+  border-color: rgba(64, 158, 255, 0.3);
 }
 
 .profile-header {
   text-align: center;
   padding: 20px 0;
-  border-bottom: 1px solid #ebeef5;
+  border-bottom: 1px solid rgba(64, 158, 255, 0.1);
+  background: linear-gradient(135deg, #e8f4ff 0%, #f0f7ff 100%);
+  margin: -20px -20px 20px -20px;
+  border-radius: 10px 10px 0 0;
 }
 
 .profile-header h3 {
   margin: 15px 0 5px 0;
-  color: #303133;
+  color: #1e88e5;
+  font-weight: 700;
 }
 
 .role {
   margin: 0;
-  color: #909399;
+  color: #5a7a9a;
   font-size: 14px;
+  font-weight: 500;
 }
 
 .profile-info {
@@ -293,8 +309,8 @@ onMounted(() => {
 .info-item {
   display: flex;
   justify-content: space-between;
-  padding: 10px 0;
-  border-bottom: 1px solid #f5f5f5;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(64, 158, 255, 0.08);
 }
 
 .info-item:last-child {
@@ -302,17 +318,65 @@ onMounted(() => {
 }
 
 .label {
-  color: #909399;
+  color: #7a8a9a;
   font-size: 14px;
 }
 
 .value {
-  color: #303133;
+  color: #2c3e50;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .card-header {
   font-weight: 600;
+  color: #1e88e5;
+}
+
+.edit-card :deep(.el-form-item__label) {
+  color: #5a7a9a;
+  font-weight: 500;
+}
+
+.edit-card :deep(.el-input__wrapper) {
+  background-color: #f8fafc;
+  border: 1px solid rgba(64, 158, 255, 0.2);
+  border-radius: 8px;
+}
+
+.edit-card :deep(.el-input__wrapper:hover) {
+  border-color: rgba(64, 158, 255, 0.5);
+}
+
+.edit-card :deep(.el-input__wrapper.is-focus) {
+  border-color: #409EFF;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+}
+
+.edit-card :deep(.el-button--primary) {
+  background: linear-gradient(135deg, #409EFF 0%, #337ecc 100%);
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.password-card :deep(.el-form-item__label) {
+  color: #5a7a9a;
+  font-weight: 500;
+}
+
+.password-card :deep(.el-input__wrapper) {
+  background-color: #f8fafc;
+  border: 1px solid rgba(64, 158, 255, 0.2);
+  border-radius: 8px;
+}
+
+.password-card :deep(.el-input__wrapper:hover) {
+  border-color: rgba(64, 158, 255, 0.5);
+}
+
+.password-card :deep(.el-input__wrapper.is-focus) {
+  border-color: #409EFF;
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
 }
 </style>

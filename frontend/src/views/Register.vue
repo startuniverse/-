@@ -1,5 +1,8 @@
 <template>
   <div class="register-container">
+    <!-- 森林粒子背景 -->
+    <canvas ref="forestCanvas" class="forest-canvas"></canvas>
+
     <div class="register-card">
       <div class="register-header">
         <h2>用户注册</h2>
@@ -79,7 +82,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { User, Lock, Phone } from '@element-plus/icons-vue'
@@ -89,6 +92,190 @@ const router = useRouter()
 
 const registerFormRef = ref()
 const loading = ref(false)
+const forestCanvas = ref(null)
+let animationId = null
+
+// 森林粒子类（绿色叶子）
+class Leaf {
+  constructor(canvas) {
+    this.canvas = canvas
+    this.reset()
+  }
+
+  reset() {
+    this.x = Math.random() * this.canvas.width
+    this.y = Math.random() * this.canvas.height
+    this.vx = (Math.random() - 0.5) * 0.3
+    this.vy = Math.random() * 0.5 + 0.2 // 向下飘落
+    this.size = Math.random() * 4 + 2
+    this.rotation = Math.random() * Math.PI * 2
+    this.rotationSpeed = (Math.random() - 0.5) * 0.05
+    this.opacity = Math.random() * 0.4 + 0.3
+    this.color = Math.random() > 0.5 ? 'rgba(76, 175, 80' : 'rgba(102, 187, 106' // 绿色系
+  }
+
+  update() {
+    this.x += this.vx
+    this.y += this.vy
+    this.rotation += this.rotationSpeed
+
+    // 边界检查
+    if (this.y > this.canvas.height) {
+      this.y = -10
+      this.x = Math.random() * this.canvas.width
+    }
+    if (this.x < 0) this.x = this.canvas.width
+    if (this.x > this.canvas.width) this.x = 0
+  }
+
+  draw(ctx) {
+    ctx.save()
+    ctx.translate(this.x, this.y)
+    ctx.rotate(this.rotation)
+    ctx.beginPath()
+    ctx.ellipse(0, 0, this.size, this.size * 0.6, 0, 0, Math.PI * 2)
+    ctx.fillStyle = `${this.color}, ${this.opacity})`
+    ctx.fill()
+    ctx.restore()
+  }
+}
+
+// 森林光点类（萤火虫）
+class Firefly {
+  constructor(canvas) {
+    this.canvas = canvas
+    this.reset()
+  }
+
+  reset() {
+    this.x = Math.random() * this.canvas.width
+    this.y = Math.random() * this.canvas.height
+    this.vx = (Math.random() - 0.5) * 0.8
+    this.vy = (Math.random() - 0.5) * 0.8
+    this.radius = Math.random() * 2 + 1
+    this.opacity = Math.random() * 0.6 + 0.2
+    this.pulseSpeed = Math.random() * 0.02 + 0.01
+    this.pulsePhase = Math.random() * Math.PI * 2
+  }
+
+  update() {
+    this.x += this.vx
+    this.y += this.vy
+    this.pulsePhase += this.pulseSpeed
+
+    // 脉动效果
+    this.opacity = 0.3 + Math.sin(this.pulsePhase) * 0.3
+
+    // 边界反弹
+    if (this.x < 0 || this.x > this.canvas.width) this.vx *= -1
+    if (this.y < 0 || this.y > this.canvas.height) this.vy *= -1
+  }
+
+  draw(ctx) {
+    // 核心
+    ctx.beginPath()
+    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2)
+    ctx.fillStyle = `rgba(150, 255, 150, ${this.opacity})`
+    ctx.fill()
+
+    // 光晕
+    ctx.beginPath()
+    ctx.arc(this.x, this.y, this.radius * 3, 0, Math.PI * 2)
+    const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.radius * 3)
+    gradient.addColorStop(0, `rgba(150, 255, 150, ${this.opacity * 0.4})`)
+    gradient.addColorStop(1, 'rgba(150, 255, 150, 0)')
+    ctx.fillStyle = gradient
+    ctx.fill()
+  }
+}
+
+// 森林背景系统
+class ForestSystem {
+  constructor(canvas) {
+    this.canvas = canvas
+    this.ctx = canvas.getContext('2d')
+    this.leaves = []
+    this.fireflies = []
+    this.resize()
+    this.init()
+  }
+
+  init() {
+    // 创建叶子
+    this.leaves = []
+    for (let i = 0; i < 60; i++) {
+      this.leaves.push(new Leaf(this.canvas))
+    }
+
+    // 创建萤火虫
+    this.fireflies = []
+    for (let i = 0; i < 30; i++) {
+      this.fireflies.push(new Firefly(this.canvas))
+    }
+  }
+
+  resize() {
+    this.canvas.width = window.innerWidth
+    this.canvas.height = window.innerHeight
+  }
+
+  drawGradient() {
+    // 森林渐变背景
+    const gradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height)
+    gradient.addColorStop(0, '#0a2e1a')
+    gradient.addColorStop(0.5, '#134f2c')
+    gradient.addColorStop(1, '#1a5c3a')
+    this.ctx.fillStyle = gradient
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
+  }
+
+  animate() {
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
+
+    // 绘制背景
+    this.drawGradient()
+
+    // 更新和绘制叶子
+    this.leaves.forEach(leaf => {
+      leaf.update()
+      leaf.draw(this.ctx)
+    })
+
+    // 更新和绘制萤火虫
+    this.fireflies.forEach(firefly => {
+      firefly.update()
+      firefly.draw(this.ctx)
+    })
+
+    animationId = requestAnimationFrame(() => this.animate())
+  }
+
+  destroy() {
+    if (animationId) {
+      cancelAnimationFrame(animationId)
+    }
+  }
+}
+
+let forestSystem = null
+
+onMounted(() => {
+  if (forestCanvas.value) {
+    forestSystem = new ForestSystem(forestCanvas.value)
+    forestSystem.animate()
+
+    window.addEventListener('resize', () => {
+      forestSystem.resize()
+      forestSystem.init()
+    })
+  }
+})
+
+onUnmounted(() => {
+  if (forestSystem) {
+    forestSystem.destroy()
+  }
+})
 
 const registerForm = reactive({
   username: '',
@@ -171,30 +358,47 @@ const handleRegister = async () => {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  position: relative;
+  background: #0a2e1a;
+  overflow: hidden;
+}
+
+.forest-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
 }
 
 .register-card {
-  width: 450px;
-  background: white;
-  border-radius: 10px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-  padding: 40px;
+  position: relative;
+  z-index: 2;
+  width: 460px;
+  background: rgba(20, 40, 30, 0.85);
+  border-radius: 18px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), 0 0 40px rgba(76, 175, 80, 0.15);
+  padding: 45px;
+  backdrop-filter: blur(15px);
+  border: 1px solid rgba(76, 175, 80, 0.25);
 }
 
 .register-header {
   text-align: center;
-  margin-bottom: 30px;
+  margin-bottom: 35px;
 }
 
 .register-header h2 {
-  color: #333;
+  color: #a8f5a8;
   font-size: 24px;
+  font-weight: 700;
   margin-bottom: 10px;
+  text-shadow: 0 0 15px rgba(76, 175, 80, 0.5);
 }
 
 .register-header p {
-  color: #666;
+  color: #7fcf8f;
   font-size: 14px;
 }
 
@@ -202,13 +406,65 @@ const handleRegister = async () => {
   margin-top: 20px;
 }
 
+.register-form :deep(.el-input__wrapper) {
+  background-color: rgba(15, 30, 20, 0.6);
+  border: 1px solid rgba(76, 175, 80, 0.4);
+  border-radius: 10px;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+}
+
+.register-form :deep(.el-input__wrapper:hover) {
+  background-color: rgba(20, 40, 25, 0.7);
+  border-color: rgba(102, 187, 106, 0.6);
+}
+
+.register-form :deep(.el-input__wrapper.is-focus) {
+  background-color: rgba(25, 50, 30, 0.8);
+  border-color: rgba(129, 199, 132, 0.9);
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.3);
+}
+
+.register-form :deep(.el-input__inner) {
+  color: #e8ffe8;
+  font-weight: 500;
+}
+
+.register-form :deep(.el-input__inner::placeholder) {
+  color: #8fb89f;
+}
+
 .register-button {
   width: 100%;
-  margin-top: 10px;
+  margin-top: 15px;
+  background: linear-gradient(135deg, #2e7d32 0%, #4caf50 100%);
+  border: none;
+  font-weight: 600;
+  letter-spacing: 1px;
+  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+  transition: all 0.3s ease;
+}
+
+.register-button:hover {
+  background: linear-gradient(135deg, #388e3c 0%, #66bb6a 100%);
+  box-shadow: 0 6px 20px rgba(76, 175, 80, 0.6);
+  transform: translateY(-1px);
 }
 
 .register-footer {
   text-align: center;
-  margin-top: 20px;
+  margin-top: 25px;
+}
+
+.register-footer :deep(.el-link) {
+  font-weight: 500;
+}
+
+.register-footer :deep(.el-link.el-link--primary) {
+  color: #81c784;
+}
+
+.register-footer :deep(.el-link.el-link--primary:hover) {
+  color: #a5d6a7;
 }
 </style>

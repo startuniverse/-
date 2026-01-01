@@ -170,6 +170,82 @@ onMounted(async () => {
 
 .welcome-card {
   margin-bottom: 20px;
+  background: linear-gradient(135deg, #e8f4ff 0%, #f0f7ff 100%);
+  border: 1px solid rgba(64, 158, 255, 0.2);
+  border-radius: 12px;
+}
+
+.welcome-card :deep(.el-card__body) {
+  background: transparent;
+}
+
+.welcome-content h2 {
+  color: #1e88e5;
+  font-weight: 700;
+}
+
+.welcome-content p {
+  color: #5a7a9a;
+}
+
+.quick-actions :deep(.el-button--primary) {
+  background: linear-gradient(135deg, #409EFF 0%, #337ecc 100%);
+  border: none;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
+}
+
+.quick-actions :deep(.el-button) {
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+.stat-card {
+  margin-bottom: 20px;
+  min-height: 120px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(64, 158, 255, 0.15);
+  border-radius: 10px;
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(64, 158, 255, 0.15);
+  border-color: rgba(64, 158, 255, 0.3);
+}
+
+.stat-value {
+  color: #1e88e5;
+  font-weight: 700;
+}
+
+.quick-links-card,
+.notice-card {
+  margin-bottom: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.quick-link-item {
+  border: 1px solid rgba(64, 158, 255, 0.2);
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 8px;
+}
+
+.quick-link-item:hover {
+  background: linear-gradient(135deg, #e8f4ff 0%, #f0f7ff 100%);
+  border-color: #409EFF;
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.2);
+}
+
+.quick-link-item .el-icon {
+  color: #409EFF;
+}
+
+.quick-link-item span {
+  color: #5a7a9a;
+  font-weight: 500;
 }
 
 .welcome-content {

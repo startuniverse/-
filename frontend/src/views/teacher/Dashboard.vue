@@ -300,14 +300,171 @@ const viewAllActivities = () => {
 .teacher-welcome {
   background: linear-gradient(135deg, #1e3a5f 0%, #2d5a8f 100%);
   color: white;
+  border: 1px solid rgba(96, 165, 250, 0.3);
+  border-radius: 12px;
 }
 
 .teacher-welcome h2 {
   color: white;
+  font-weight: 700;
 }
 
 .teacher-welcome p {
   color: #c0d4f0;
+}
+
+.welcome-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.welcome-content h2 {
+  margin: 0 0 8px 0;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.welcome-content p {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+}
+
+.teacher-info {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.info-item {
+  background: rgba(255, 255, 255, 0.15);
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.quick-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.quick-actions :deep(.el-button--primary) {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.quick-actions :deep(.el-button--success) {
+  background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.quick-actions :deep(.el-button) {
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+.stats-row {
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  margin-bottom: 20px;
+  min-height: 120px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(30, 58, 95, 0.15);
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(30, 58, 95, 0.2);
+  border-color: rgba(30, 58, 95, 0.3);
+}
+
+.stat-value {
+  color: #1e3a5f;
+  font-weight: 700;
+}
+
+.stat-label {
+  color: #64748b;
+}
+
+.features-row {
+  margin-bottom: 20px;
+}
+
+.feature-card {
+  margin-bottom: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 10px;
+  border: 1px solid rgba(30, 58, 95, 0.1);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 16px;
+  color: #1e3a5f;
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(30, 58, 95, 0.1);
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.feature-item:hover {
+  background: linear-gradient(135deg, #e8f4ff 0%, #f0f7ff 100%);
+  border-color: #1e3a5f;
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(30, 58, 95, 0.15);
+}
+
+.feature-title {
+  color: #1e3a5f;
+  font-weight: 600;
+}
+
+.feature-desc {
+  color: #64748b;
+}
+
+.activity-card {
+  margin-bottom: 20px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 10px;
+  border: 1px solid rgba(30, 58, 95, 0.1);
+}
+
+.activity-item {
+  border-bottom: 1px solid rgba(30, 58, 95, 0.08);
+}
+
+.activity-title {
+  color: #1e3a5f;
+}
+
+.activity-time {
+  color: #64748b;
 }
 
 .welcome-content {

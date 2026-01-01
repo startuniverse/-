@@ -139,6 +139,7 @@ onMounted(() => {
 <style scoped>
 .layout-container {
   height: 100vh;
+  background: linear-gradient(135deg, #f8fafc 0%, #eef2f7 100%);
 }
 
 .main-container {
@@ -146,9 +147,10 @@ onMounted(() => {
 }
 
 .sidebar {
-  background-color: #304156;
+  background: linear-gradient(180deg, #2c3e50 0%, #34495e 100%);
   overflow: hidden;
   transition: width 0.3s;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .logo {
@@ -156,9 +158,12 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
+  color: #ffffff;
   font-size: 18px;
-  border-bottom: 1px solid #2c3e50;
+  font-weight: 600;
+  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  letter-spacing: 0.5px;
 }
 
 .el-menu-vertical {
@@ -166,13 +171,32 @@ onMounted(() => {
   height: calc(100% - 60px);
 }
 
+.el-menu-vertical .el-menu-item {
+  color: #d1dbe5;
+  border-left: 3px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.el-menu-vertical .el-menu-item:hover {
+  background-color: #3d5266 !important;
+  color: #ffffff;
+}
+
+.el-menu-vertical .el-menu-item.is-active {
+  background: linear-gradient(90deg, #3d5266 0%, #4a5f75 100%) !important;
+  color: #ffffff;
+  border-left-color: #409EFF;
+}
+
 .header {
-  background-color: white;
-  border-bottom: 1px solid #e6e6e6;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .header-left {
@@ -189,10 +213,29 @@ onMounted(() => {
 .username {
   font-size: 14px;
   color: #606266;
+  font-weight: 500;
 }
 
 .main-content {
-  background-color: #f5f7fa;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
   padding: 20px;
+  overflow-y: auto;
+}
+
+.main-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.main-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.main-content::-webkit-scrollbar-thumb {
+  background: #c0c4cc;
+  border-radius: 3px;
+}
+
+.main-content::-webkit-scrollbar-thumb:hover {
+  background: #909399;
 }
 </style>

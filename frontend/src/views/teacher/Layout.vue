@@ -160,6 +160,7 @@ onMounted(() => {
 <style scoped>
 .layout-container {
   height: 100vh;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
 }
 
 .main-container {
@@ -167,13 +168,17 @@ onMounted(() => {
 }
 
 .sidebar {
-  background-color: #1e3a5f;
+  background: linear-gradient(180deg, #1e3a5f 0%, #1a2942 100%);
   overflow: hidden;
   transition: width 0.3s;
+  border-right: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .teacher-sidebar .logo {
   background: linear-gradient(135deg, #1e3a5f 0%, #2d5a8f 100%);
+  color: #e8f0ff;
+  font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
 .logo {
@@ -181,9 +186,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
   font-size: 18px;
-  border-bottom: 1px solid #2c3e50;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .el-menu-vertical {
@@ -192,21 +196,31 @@ onMounted(() => {
 }
 
 .el-menu-vertical .el-menu-item {
+  color: #cbd5e1;
   border-left: 3px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.el-menu-vertical .el-menu-item:hover {
+  background-color: #2d5a8f !important;
+  color: #ffffff;
 }
 
 .el-menu-vertical .el-menu-item.is-active {
-  background-color: #2d5a8f !important;
-  border-left-color: #409EFF;
+  background: linear-gradient(90deg, #2d5a8f 0%, #3a6ba8 100%) !important;
+  color: #ffffff;
+  border-left-color: #60a5fa;
 }
 
 .header {
-  background-color: white;
-  border-bottom: 1px solid #e6e6e6;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
 .header-left {
@@ -216,12 +230,13 @@ onMounted(() => {
 }
 
 .role-badge {
-  background: linear-gradient(135deg, #409EFF 0%, #337ecc 100%);
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: white;
   padding: 4px 12px;
   border-radius: 12px;
   font-size: 12px;
   font-weight: 600;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
 }
 
 .header-right {
@@ -232,11 +247,30 @@ onMounted(() => {
 
 .username {
   font-size: 14px;
-  color: #606266;
+  color: #475569;
+  font-weight: 500;
 }
 
 .main-content {
-  background-color: #f5f7fa;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   padding: 20px;
+  overflow-y: auto;
+}
+
+.main-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.main-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.main-content::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 3px;
+}
+
+.main-content::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
 }
 </style>
