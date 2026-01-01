@@ -35,4 +35,14 @@ public interface UserMapper extends BaseMapper<User> {
      * 根据学校ID查询用户列表
      */
     List<User> selectBySchoolId(@Param("schoolId") Long schoolId);
+
+    /**
+     * 为用户分配角色
+     */
+    void assignRoleToUser(@Param("userId") Long userId, @Param("roleId") Long roleId);
+
+    /**
+     * 根据角色编码查询角色ID
+     */
+    Long selectRoleIdByCode(@Param("roleCode") String roleCode);
 }

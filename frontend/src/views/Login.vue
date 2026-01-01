@@ -43,9 +43,16 @@
         </el-form-item>
 
         <div class="login-footer">
-          <el-link type="primary" @click="$router.push('/register')">
-            没有账户？立即注册
-          </el-link>
+          <div style="margin-bottom: 10px;">
+            <el-link type="primary" @click="$router.push('/register')">
+              没有账户？立即注册
+            </el-link>
+          </div>
+          <div>
+            <el-link type="success" @click="$router.push('/teacher-register')">
+              教师注册
+            </el-link>
+          </div>
         </div>
       </el-form>
     </div>
@@ -86,12 +93,17 @@ const handleLogin = async () => {
     if (valid) {
       try {
         loading.value = true
-        await userStore.loginAction(loginForm.username, loginForm.password)
+        const res = await userStore.loginAction(loginForm.username, loginForm.password)
+        console.log('登录响应:', res)
+        console.log('用户角色:', userStore.roles)
+        console.log('hasRole(TEACHER):', userStore.hasRole('TEACHER'))
         ElMessage.success('登录成功')
 
         // 根据角色跳转到不同页面
         if (userStore.hasRole('ADMIN')) {
           router.push('/admin/dashboard')
+        } else if (userStore.hasRole('TEACHER')) {
+          router.push('/teacher')
         } else {
           router.push('/')
         }

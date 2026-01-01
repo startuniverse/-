@@ -1,7 +1,11 @@
 package com.education.platform.service.impl;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.education.platform.entity.Role;
+import com.education.platform.entity.School;
 import com.education.platform.entity.User;
+import com.education.platform.mapper.RoleMapper;
+import com.education.platform.mapper.SchoolMapper;
 import com.education.platform.mapper.UserMapper;
 import com.education.platform.service.IUserService;
 import com.education.platform.util.JwtUtils;
@@ -28,6 +32,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
     @Autowired
     private UserMapper userMapper;
+
+    @Autowired
+    private RoleMapper roleMapper;
+
+    @Autowired
+    private SchoolMapper schoolMapper;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -62,6 +72,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         List<String> roles = new ArrayList<>(userMapper.selectRolesByUserId(user.getId()));
         List<String> permissions = new ArrayList<>(userMapper.selectPermissionsByUserId(user.getId()));
 
+        // 调试日志
+        System.out.println("=== 用户 " + username + " 登录，角色: " + roles + "，权限: " + permissions);
+
         Map<String, Object> result = new HashMap<>();
         result.put("token", token);
         result.put("userInfo", getUserInfoMap(user, roles, permissions));
@@ -83,7 +96,87 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         user.setStatus(1);
 
-        return userMapper.insert(user) > 0;
+        // 插入用户
+        int result = userMapper.insert(user);
+        if (result > 0) {
+            // 默认分配USER角色
+            assignRole(user.getId(), "USER");
+        }
+        return result > 0;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean registerWithRole(User user, String roleCode) {
+        // 检查用户名是否已存在
+        User existingUser = userMapper.selectByUsername(user.getUsername());
+        if (existingUser != null) {
+            throw new RuntimeException("用户名已存在");
+        }
+
+        // 密码加密
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        user.setStatus(1);
+
+        // 插入用户
+        int result = userMapper.insert(user);
+        if (result > 0) {
+            // 分配指定角色
+            return assignRole(user.getId(), roleCode);
+        }
+        return false;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean registerTeacher(User user) {
+        return registerWithRole(user, "TEACHER");
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Boolean assignRole(Long userId, String roleCode) {
+        // 检查用户是否存在
+        User user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new RuntimeException("用户不存在");
+        }
+
+        // 查询角色ID
+        Long roleId = userMapper.selectRoleIdByCode(roleCode);
+
+        // 如果角色不存在，自动创建
+        if (roleId == null) {
+            log.info("角色 {} 不存在，自动创建", roleCode);
+
+            Role newRole = new Role();
+            newRole.setRoleCode(roleCode);
+            newRole.setRoleName(getDefaultRoleName(roleCode));
+            newRole.setDescription("自动创建的角色");
+
+            roleMapper.insert(newRole);
+            roleId = newRole.getId();
+        }
+
+        // 分配角色
+        userMapper.assignRoleToUser(userId, roleId);
+        return true;
+    }
+
+    /**
+     * 根据角色编码获取默认角色名称
+     */
+    private String getDefaultRoleName(String roleCode) {
+        switch (roleCode) {
+            case "TEACHER":
+                return "教师";
+            case "ADMIN":
+                return "系统管理员";
+            case "USER":
+                return "普通用户";
+            default:
+                return roleCode;
+        }
     }
 
     @Override
@@ -134,6 +227,19 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         userInfo.put("email", user.getEmail());
         userInfo.put("avatar", user.getAvatar());
         userInfo.put("schoolId", user.getSchoolId());
+
+        // 查询学校名称
+        if (user.getSchoolId() != null) {
+            School school = schoolMapper.selectById(user.getSchoolId());
+            if (school != null) {
+                userInfo.put("schoolName", school.getSchoolName());
+            } else {
+                userInfo.put("schoolName", "");
+            }
+        } else {
+            userInfo.put("schoolName", "");
+        }
+
         userInfo.put("department", user.getDepartment());
         userInfo.put("title", user.getTitle());
         userInfo.put("roles", roles);

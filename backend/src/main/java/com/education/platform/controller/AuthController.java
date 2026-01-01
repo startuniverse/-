@@ -1,7 +1,9 @@
 package com.education.platform.controller;
 
 import com.education.platform.common.ApiResult;
+import com.education.platform.entity.School;
 import com.education.platform.entity.User;
+import com.education.platform.mapper.SchoolMapper;
 import com.education.platform.service.IUserService;
 import com.education.platform.util.JwtUtils;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,6 +31,9 @@ public class AuthController {
 
     @Autowired
     private JwtUtils jwtUtils;
+
+    @Autowired
+    private SchoolMapper schoolMapper;
 
     /**
      * 登录请求参数
@@ -59,6 +64,28 @@ public class AuthController {
         private String phone;
         private String email;
         private Long schoolId;
+    }
+
+    /**
+     * 教师注册请求参数
+     */
+    @Data
+    public static class TeacherRegisterRequest {
+        @NotBlank(message = "用户名不能为空")
+        private String username;
+
+        @NotBlank(message = "密码不能为空")
+        private String password;
+
+        @NotBlank(message = "真实姓名不能为空")
+        private String realName;
+
+        private String phone;
+        private String email;
+        private Long schoolId;              // 学校ID（选择现有学校）
+        private String customSchoolName;    // 自定义学校名称（手动输入）
+        private String department;  // 部门/院系
+        private String title;       // 职称
     }
 
     @PostMapping("/login")
@@ -96,7 +123,7 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    @Operation(summary = "用户注册", description = "新用户注册")
+    @Operation(summary = "用户注册", description = "新用户注册（默认普通用户角色）")
     public ApiResult<Boolean> register(@Valid @RequestBody RegisterRequest request) {
         try {
             User user = new User();
@@ -109,6 +136,54 @@ public class AuthController {
 
             Boolean success = userService.register(user);
             return ApiResult.success("注册成功", success);
+        } catch (RuntimeException e) {
+            return ApiResult.error(e.getMessage());
+        }
+    }
+
+    @PostMapping("/register/teacher")
+    @Operation(summary = "教师注册", description = "注册教师用户（自动分配TEACHER角色）")
+    public ApiResult<Boolean> registerTeacher(@Valid @RequestBody TeacherRegisterRequest request) {
+        try {
+            User user = new User();
+            user.setUsername(request.getUsername());
+            user.setPassword(request.getPassword());
+            user.setRealName(request.getRealName());
+            user.setPhone(request.getPhone());
+            user.setEmail(request.getEmail());
+            user.setDepartment(request.getDepartment());
+            user.setTitle(request.getTitle());
+
+            // 处理学校选择：要么选择现有学校，要么创建新学校
+            Long schoolId = request.getSchoolId();
+
+            // 如果没有选择学校，但提供了自定义学校名称，则创建新学校
+            if (schoolId == null && request.getCustomSchoolName() != null && !request.getCustomSchoolName().trim().isEmpty()) {
+                // 创建新学校
+                School newSchool = new School();
+                newSchool.setSchoolCode("S" + System.currentTimeMillis());  // 生成唯一编码
+                newSchool.setSchoolName(request.getCustomSchoolName());
+                newSchool.setSchoolType("secondary");  // 默认为中学类型
+                newSchool.setAddress("待补充");
+                newSchool.setContactPerson("待补充");
+                newSchool.setContactPhone("待补充");
+                newSchool.setStatus(1);
+
+                // 保存学校并获取ID
+                int result = schoolMapper.insert(newSchool);
+                if (result > 0) {
+                    schoolId = newSchool.getId();
+                }
+            }
+
+            if (schoolId == null) {
+                return ApiResult.error("请选择学校或输入学校名称");
+            }
+
+            user.setSchoolId(schoolId);
+
+            Boolean success = userService.registerTeacher(user);
+            return ApiResult.success("教师注册成功", success);
         } catch (RuntimeException e) {
             return ApiResult.error(e.getMessage());
         }

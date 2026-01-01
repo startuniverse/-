@@ -18,9 +18,24 @@ public interface IUserService extends IService<User> {
     Map<String, Object> login(String username, String password);
 
     /**
-     * 用户注册
+     * 用户注册（默认普通用户角色）
      */
     Boolean register(User user);
+
+    /**
+     * 用户注册并指定角色
+     */
+    Boolean registerWithRole(User user, String roleCode);
+
+    /**
+     * 教师注册（自动分配TEACHER角色）
+     */
+    Boolean registerTeacher(User user);
+
+    /**
+     * 为用户分配角色
+     */
+    Boolean assignRole(Long userId, String roleCode);
 
     /**
      * 根据用户名查询用户

@@ -6,6 +6,7 @@ import com.education.platform.common.ApiResult;
 import com.education.platform.common.PageResult;
 import com.education.platform.entity.*;
 import com.education.platform.mapper.*;
+import com.education.platform.service.IUserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -17,6 +18,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 后台管理控制器
@@ -63,6 +65,9 @@ public class BackendController {
 
     @Autowired
     private com.education.platform.util.JwtUtils jwtUtils;
+
+    @Autowired
+    private IUserService userService;
 
     /**
      * 从token中获取用户ID的辅助方法
@@ -822,5 +827,293 @@ public class BackendController {
             Map.of("id", 2, "deviceId", "SIGN-002", "className", "三年级二班", "status", "在线")
         );
         return ApiResult.success(signs);
+    }
+
+    /**
+     * 4.6.2 学校管理 - 列表（公开接口，用于注册时选择学校）
+     */
+    @GetMapping("/school/list")
+    @Operation(summary = "学校列表", description = "获取学校列表（公开接口）")
+    public ApiResult<List<School>> listSchools() {
+        try {
+            LambdaQueryWrapper<School> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(School::getStatus, 1);  // 只显示正常状态的学校
+            wrapper.orderByAsc(School::getId);
+            List<School> schools = schoolMapper.selectList(wrapper);
+            return ApiResult.success(schools);
+        } catch (Exception e) {
+            System.err.println("查询学校列表失败: " + e.getMessage());
+            return ApiResult.error("查询学校列表失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 4.7.1 教师管理 - 列表
+     */
+    @GetMapping("/teacher/list")
+    @Operation(summary = "教师列表", description = "获取教师列表")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResult<PageResult<Map<String, Object>>> listTeachers(
+            @Parameter(description = "学校ID") @RequestParam(required = false) Long schoolId,
+            @Parameter(description = "姓名/工号模糊查询") @RequestParam(required = false) String keyword,
+            @Parameter(description = "当前页") @RequestParam(defaultValue = "1") Long current,
+            @Parameter(description = "每页条数") @RequestParam(defaultValue = "10") Long size) {
+
+        Page<Teacher> page = new Page<>(current, size);
+        LambdaQueryWrapper<Teacher> wrapper = new LambdaQueryWrapper<>();
+
+        // 关键词查询（姓名或工号）
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            // 先查询匹配的用户ID
+            LambdaQueryWrapper<User> userWrapper = new LambdaQueryWrapper<>();
+            userWrapper.like(User::getRealName, keyword).or().like(User::getUsername, keyword);
+            List<User> users = userMapper.selectList(userWrapper);
+            List<Long> userIds = users.stream().map(User::getId).collect(Collectors.toList());
+
+            if (!userIds.isEmpty()) {
+                wrapper.in(Teacher::getUserId, userIds);
+            } else {
+                // 如果用户表没找到，尝试按工号查询
+                wrapper.like(Teacher::getTeacherNumber, keyword);
+            }
+        }
+
+        if (schoolId != null) {
+            // 先查询该学校的所有用户
+            List<User> schoolUsers = userMapper.selectBySchoolId(schoolId);
+            List<Long> userIds = schoolUsers.stream().map(User::getId).collect(Collectors.toList());
+            if (!userIds.isEmpty()) {
+                wrapper.in(Teacher::getUserId, userIds);
+            } else {
+                // 如果没有匹配的教师，返回空结果
+                Page<Map<String, Object>> emptyPage = new Page<>(current, size);
+                emptyPage.setRecords(new java.util.ArrayList<>());
+                return ApiResult.success(PageResult.of(emptyPage));
+            }
+        }
+
+        wrapper.orderByDesc(Teacher::getCreatedAt);
+
+        Page<Teacher> result = teacherMapper.selectPage(page, wrapper);
+
+        // 关联查询用户信息，返回包含姓名的数据
+        List<Map<String, Object>> records = new java.util.ArrayList<>();
+        for (Teacher teacher : result.getRecords()) {
+            Map<String, Object> map = new java.util.HashMap<>();
+            map.put("id", teacher.getId());
+            map.put("teacherNumber", teacher.getTeacherNumber());
+            map.put("title", teacher.getTitle());
+            map.put("subject", teacher.getSubject());
+            map.put("hireDate", teacher.getHireDate());
+            map.put("status", teacher.getStatus());
+
+            // 关联查询用户姓名和部门
+            User user = userMapper.selectById(teacher.getUserId());
+            if (user != null) {
+                map.put("name", user.getRealName());
+                map.put("department", user.getDepartment());
+                map.put("phone", user.getPhone());
+                map.put("email", user.getEmail());
+                map.put("schoolId", user.getSchoolId());
+            } else {
+                map.put("name", "");
+                map.put("department", "");
+                map.put("phone", "");
+                map.put("email", "");
+                map.put("schoolId", null);
+            }
+
+            records.add(map);
+        }
+
+        Page<Map<String, Object>> finalPage = new Page<>(current, size);
+        finalPage.setRecords(records);
+        finalPage.setTotal(result.getTotal());
+        finalPage.setSize(result.getSize());
+        finalPage.setCurrent(result.getCurrent());
+
+        return ApiResult.success(PageResult.of(finalPage));
+    }
+
+    /**
+     * 4.7.2 教师管理 - 新增
+     */
+    @PostMapping("/teacher/add")
+    @Operation(summary = "新增教师", description = "新增教师信息")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResult<Boolean> addTeacher(@RequestBody Map<String, Object> teacherData) {
+        try {
+            // 从请求中提取数据
+            String name = (String) teacherData.get("name");
+            String teacherNumber = (String) teacherData.get("teacherNumber");
+            Long schoolId = teacherData.get("schoolId") != null ? Long.parseLong(teacherData.get("schoolId").toString()) : null;
+            String department = (String) teacherData.get("department");
+            String title = (String) teacherData.get("title");
+            String subject = (String) teacherData.get("subject");
+            String phone = (String) teacherData.get("phone");
+            String email = (String) teacherData.get("email");
+            Object hireDateObj = teacherData.get("hireDate");
+
+            // 验证必填字段
+            if (name == null || name.trim().isEmpty()) {
+                return ApiResult.error("教师姓名不能为空");
+            }
+            if (teacherNumber == null || teacherNumber.trim().isEmpty()) {
+                return ApiResult.error("教师编号不能为空");
+            }
+            if (schoolId == null) {
+                return ApiResult.error("学校ID不能为空");
+            }
+
+            // 1. 先创建 User 记录
+            User user = new User();
+            user.setUsername("teacher_" + teacherNumber);  // 生成用户名
+            user.setPassword("$2a$10$518kI.1n7qL5jK8x9mX2eO3rY4uV5wX6yZ7aB8cD9eF0gH1iJ2kL"); // 默认密码: 123
+            user.setRealName(name);
+            user.setPhone(phone);
+            user.setEmail(email != null ? email : teacherNumber + "@edu.com");
+            user.setSchoolId(schoolId);
+            user.setDepartment(department);
+            user.setTitle(title);
+            user.setStatus(1);
+            userMapper.insert(user);
+
+            // 2. 创建 Teacher 记录
+            Teacher teacher = new Teacher();
+            teacher.setUserId(user.getId());
+            teacher.setTeacherNumber(teacherNumber);
+            teacher.setTitle(title);
+            teacher.setSubject(subject);
+            teacher.setStatus(1); // 在职
+
+            if (hireDateObj != null) {
+                if (hireDateObj instanceof String) {
+                    teacher.setHireDate(java.time.LocalDate.parse((String) hireDateObj));
+                } else {
+                    teacher.setHireDate(java.time.LocalDate.now());
+                }
+            } else {
+                teacher.setHireDate(java.time.LocalDate.now());
+            }
+
+            teacherMapper.insert(teacher);
+
+            // 3. 分配 TEACHER 角色
+            userService.assignRole(user.getId(), "TEACHER");
+
+            return ApiResult.success(true);
+        } catch (Exception e) {
+            System.err.println("教师新增失败: " + e.getMessage());
+            e.printStackTrace();
+            return ApiResult.error("教师新增失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 4.7.3 教师管理 - 更新
+     */
+    @PostMapping("/teacher/update")
+    @Operation(summary = "更新教师", description = "更新教师信息")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResult<Boolean> updateTeacher(@RequestBody Map<String, Object> teacherData) {
+        try {
+            // 从请求中提取数据
+            Object idObj = teacherData.get("id");
+            if (idObj == null) {
+                return ApiResult.error("教师ID不能为空");
+            }
+            Long id = Long.parseLong(idObj.toString());
+
+            String name = (String) teacherData.get("name");
+            String teacherNumber = (String) teacherData.get("teacherNumber");
+            Long schoolId = teacherData.get("schoolId") != null ? Long.parseLong(teacherData.get("schoolId").toString()) : null;
+            String department = (String) teacherData.get("department");
+            String title = (String) teacherData.get("title");
+            String subject = (String) teacherData.get("subject");
+            String phone = (String) teacherData.get("phone");
+            String email = (String) teacherData.get("email");
+            Object hireDateObj = teacherData.get("hireDate");
+            Object statusObj = teacherData.get("status");
+
+            // 验证必填字段
+            if (name == null || name.trim().isEmpty()) {
+                return ApiResult.error("教师姓名不能为空");
+            }
+            if (teacherNumber == null || teacherNumber.trim().isEmpty()) {
+                return ApiResult.error("教师编号不能为空");
+            }
+
+            // 1. 查询原教师记录
+            Teacher oldTeacher = teacherMapper.selectById(id);
+            if (oldTeacher == null) {
+                return ApiResult.error("教师不存在");
+            }
+
+            // 2. 更新 User 记录
+            User user = userMapper.selectById(oldTeacher.getUserId());
+            if (user != null) {
+                user.setRealName(name);
+                user.setPhone(phone);
+                user.setEmail(email);
+                user.setSchoolId(schoolId);
+                user.setDepartment(department);
+                user.setTitle(title);
+                userMapper.updateById(user);
+            }
+
+            // 3. 更新 Teacher 记录
+            Teacher teacher = new Teacher();
+            teacher.setId(id);
+            teacher.setUserId(oldTeacher.getUserId());
+            teacher.setTeacherNumber(teacherNumber);
+            teacher.setTitle(title);
+            teacher.setSubject(subject);
+
+            if (statusObj != null) {
+                teacher.setStatus(Integer.parseInt(statusObj.toString()));
+            }
+
+            if (hireDateObj != null) {
+                if (hireDateObj instanceof String) {
+                    teacher.setHireDate(java.time.LocalDate.parse((String) hireDateObj));
+                }
+            }
+
+            teacherMapper.updateById(teacher);
+            return ApiResult.success(true);
+        } catch (Exception e) {
+            System.err.println("教师更新失败: " + e.getMessage());
+            e.printStackTrace();
+            return ApiResult.error("教师更新失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 4.7.4 教师管理 - 删除
+     */
+    @DeleteMapping("/teacher/delete")
+    @Operation(summary = "删除教师", description = "删除教师信息")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResult<Boolean> deleteTeacher(
+            @Parameter(description = "教师ID") @RequestParam Long id) {
+        try {
+            // 1. 查询教师记录
+            Teacher teacher = teacherMapper.selectById(id);
+            if (teacher == null) {
+                return ApiResult.error("教师不存在");
+            }
+
+            // 2. 逻辑删除教师记录
+            int result = teacherMapper.deleteById(id);
+
+            // 3. 可选：同时删除关联的用户记录（或保留作为历史数据）
+            // userMapper.deleteById(teacher.getUserId());
+
+            return ApiResult.success(result > 0);
+        } catch (Exception e) {
+            System.err.println("教师删除失败: " + e.getMessage());
+            e.printStackTrace();
+            return ApiResult.error("教师删除失败: " + e.getMessage());
+        }
     }
 }

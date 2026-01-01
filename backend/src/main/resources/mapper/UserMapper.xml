@@ -29,4 +29,14 @@
         SELECT * FROM user WHERE school_id = #{schoolId} AND status = 1 AND deleted = 0
     </select>
 
+    <!-- 为用户分配角色 -->
+    <insert id="assignRoleToUser">
+        INSERT IGNORE INTO user_role (user_id, role_id) VALUES (#{userId}, #{roleId})
+    </insert>
+
+    <!-- 根据角色编码查询角色ID -->
+    <select id="selectRoleIdByCode" resultType="java.lang.Long">
+        SELECT id FROM role WHERE role_code = #{roleCode} AND deleted = 0
+    </select>
+
 </mapper>

@@ -23,6 +23,17 @@ export function register(data) {
 }
 
 /**
+ * 教师注册
+ */
+export function registerTeacher(data) {
+  return request({
+    url: '/auth/register/teacher',
+    method: 'post',
+    data
+  })
+}
+
+/**
  * 获取用户信息
  */
 export function getUserInfo() {

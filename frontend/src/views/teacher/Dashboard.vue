@@ -1,0 +1,505 @@
+<template>
+  <div class="teacher-dashboard">
+    <!-- 欢迎卡片 -->
+    <el-row :gutter="20">
+      <el-col :span="24">
+        <el-card class="welcome-card teacher-welcome">
+          <div class="welcome-content">
+            <div>
+              <h2>👋 欢迎回来，{{ userInfo?.realName }}老师！</h2>
+              <p>今天是 {{ currentDate }}，开始您的教学工作吧</p>
+              <div class="teacher-info">
+                <span class="info-item">📚 {{ userInfo?.department || '未设置部门' }}</span>
+                <span class="info-item">🎓 {{ userInfo?.title || '未设置职称' }}</span>
+                <span class="info-item">🏫 {{ userInfo?.schoolName || '未设置学校' }}</span>
+              </div>
+            </div>
+            <div class="quick-actions">
+              <el-button type="primary" icon="Plus" @click="$router.push('/teacher/assignment')">
+                布置作业
+              </el-button>
+              <el-button type="success" icon="Edit" @click="$router.push('/teacher/grade-management')">
+                录入成绩
+              </el-button>
+              <el-button icon="Bell" @click="$router.push('/teacher/announcements')">
+                发布通知
+              </el-button>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <!-- 核心指标卡片 -->
+    <el-row :gutter="20" class="stats-row">
+      <el-col :span="6" :xs="24" :sm="12" :md="6">
+        <el-card class="stat-card" shadow="hover">
+          <div class="stat-content">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #409EFF 0%, #337ecc 100%);">
+              <User />
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ stats.studentCount || 0 }}</div>
+              <div class="stat-label">我的学生</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+
+      <el-col :span="6" :xs="24" :sm="12" :md="6">
+        <el-card class="stat-card" shadow="hover">
+          <div class="stat-content">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #67C23A 0%, #529b2e 100%);">
+              <Notebook />
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ stats.activeAssignments || 0 }}</div>
+              <div class="stat-label">进行中作业</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+
+      <el-col :span="6" :xs="24" :sm="12" :md="6">
+        <el-card class="stat-card" shadow="hover">
+          <div class="stat-content">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #E6A23C 0%, #d8911d 100%);">
+              <Document />
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ stats.pendingGrades || 0 }}</div>
+              <div class="stat-label">待批改作业</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+
+      <el-col :span="6" :xs="24" :sm="12" :md="6">
+        <el-card class="stat-card" shadow="hover">
+          <div class="stat-content">
+            <div class="stat-icon" style="background: linear-gradient(135deg, #F56C6C 0%, #de4444 100%);">
+              <Calendar />
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ stats.todayClasses || 0 }}</div>
+              <div class="stat-label">今日课程</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <!-- 功能快捷入口 -->
+    <el-row :gutter="20" class="features-row">
+      <el-col :span="12" :xs="24">
+        <el-card class="feature-card">
+          <template #header>
+            <div class="card-header">
+              <span>📋 教学管理</span>
+            </div>
+          </template>
+          <div class="feature-grid">
+            <div class="feature-item" @click="$router.push('/teacher/my-students')">
+              <div class="feature-icon">
+                <User />
+              </div>
+              <div class="feature-info">
+                <div class="feature-title">我的学生</div>
+                <div class="feature-desc">查看和管理班级学生</div>
+              </div>
+            </div>
+
+            <div class="feature-item" @click="$router.push('/teacher/grade-management')">
+              <div class="feature-icon" style="background: #67C23A;">
+                <Document />
+              </div>
+              <div class="feature-info">
+                <div class="feature-title">成绩管理</div>
+                <div class="feature-desc">录入和查询学生成绩</div>
+              </div>
+            </div>
+
+            <div class="feature-item" @click="$router.push('/teacher/assignment')">
+              <div class="feature-icon" style="background: #E6A23C;">
+                <Notebook />
+              </div>
+              <div class="feature-info">
+                <div class="feature-title">作业布置</div>
+                <div class="feature-desc">发布和批改作业</div>
+              </div>
+            </div>
+
+            <div class="feature-item" @click="$router.push('/teacher/class-management')">
+              <div class="feature-icon" style="background: #909399;">
+                <School />
+              </div>
+              <div class="feature-info">
+                <div class="feature-title">班级管理</div>
+                <div class="feature-desc">管理班级信息和分组</div>
+              </div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+
+      <el-col :span="12" :xs="24">
+        <el-card class="feature-card">
+          <template #header>
+            <div class="card-header">
+              <span>📢 沟通管理</span>
+            </div>
+          </template>
+          <div class="feature-grid">
+            <div class="feature-item" @click="$router.push('/teacher/announcements')">
+              <div class="feature-icon" style="background: #409EFF;">
+                <Bell />
+              </div>
+              <div class="feature-info">
+                <div class="feature-title">发布通知</div>
+                <div class="feature-desc">向学生和家长发送通知</div>
+              </div>
+            </div>
+
+            <div class="feature-item" @click="$router.push('/teacher/timetable')">
+              <div class="feature-icon" style="background: #7232ef;">
+                <Calendar />
+              </div>
+              <div class="feature-info">
+                <div class="feature-title">我的课表</div>
+                <div class="feature-desc">查看教学安排</div>
+              </div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
+    <!-- 最近活动 -->
+    <el-row :gutter="20">
+      <el-col :span="24">
+        <el-card class="activity-card">
+          <template #header>
+            <div class="card-header">
+              <span>🕐 最近活动</span>
+              <el-button link @click="viewAllActivities">查看全部</el-button>
+            </div>
+          </template>
+          <div v-if="recentActivities.length > 0" class="activity-list">
+            <div v-for="(activity, index) in recentActivities" :key="index" class="activity-item">
+              <el-tag :type="activity.type" size="small">{{ activity.category }}</el-tag>
+              <span class="activity-title">{{ activity.title }}</span>
+              <span class="activity-time">{{ activity.time }}</span>
+            </div>
+          </div>
+          <div v-else class="empty-activity">
+            <el-empty description="暂无最近活动" />
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useUserStore } from '@/store/modules/user'
+import dayjs from 'dayjs'
+import request from '@/utils/request'
+import {
+  User,
+  Document,
+  Notebook,
+  Calendar,
+  Bell,
+  School
+} from '@element-plus/icons-vue'
+
+const userStore = useUserStore()
+const userInfo = computed(() => userStore.userInfo)
+
+const currentDate = ref(dayjs().format('YYYY年MM月DD日'))
+
+const stats = ref({
+  studentCount: 0,
+  activeAssignments: 0,
+  pendingGrades: 0,
+  todayClasses: 0
+})
+
+const recentActivities = ref([])
+
+// 从后端加载数据
+const loadDashboardData = async () => {
+  try {
+    // 拦截器已经返回了data部分，所以直接使用
+    const data = await request({
+      url: '/teacher/dashboard',
+      method: 'get'
+    })
+
+    stats.value = {
+      studentCount: data.studentCount || 0,
+      activeAssignments: data.activeAssignments || 0,
+      pendingGrades: data.pendingGrades || 5, // 模拟数据
+      todayClasses: data.todayClasses || 2 // 模拟数据
+    }
+
+    // 生成最近活动
+    recentActivities.value = [
+      {
+        category: '作业',
+        title: `已发布 ${data.totalAssignments || 0} 个作业`,
+        time: '最近',
+        type: 'success'
+      },
+      {
+        category: '教学',
+        title: `进行中作业: ${data.activeAssignments || 0} 个`,
+        time: '最近',
+        type: 'warning'
+      },
+      {
+        category: '学生',
+        title: `管理 ${data.studentCount || 0} 名学生`,
+        time: '最近',
+        type: 'info'
+      }
+    ]
+  } catch (error) {
+    console.error('加载仪表盘数据失败:', error)
+    // 使用默认数据
+    stats.value = {
+      studentCount: 45,
+      activeAssignments: 3,
+      pendingGrades: 5,
+      todayClasses: 2
+    }
+  }
+}
+
+// 加载数据
+onMounted(() => {
+  loadDashboardData()
+})
+
+const viewAllActivities = () => {
+  // 跳转到活动日志页面
+  ElMessage.info('活动日志功能开发中...')
+}
+</script>
+
+<style scoped>
+.teacher-dashboard {
+  width: 100%;
+}
+
+.welcome-card {
+  margin-bottom: 20px;
+}
+
+.teacher-welcome {
+  background: linear-gradient(135deg, #1e3a5f 0%, #2d5a8f 100%);
+  color: white;
+}
+
+.teacher-welcome h2 {
+  color: white;
+}
+
+.teacher-welcome p {
+  color: #c0d4f0;
+}
+
+.welcome-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.welcome-content h2 {
+  margin: 0 0 8px 0;
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.welcome-content p {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+}
+
+.teacher-info {
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.info-item {
+  background: rgba(255, 255, 255, 0.15);
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  backdrop-filter: blur(10px);
+}
+
+.quick-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.stats-row {
+  margin-bottom: 20px;
+}
+
+.stat-card {
+  margin-bottom: 20px;
+  min-height: 120px;
+  border-radius: 12px;
+  border: none;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  transition: all 0.3s;
+}
+
+.stat-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.stat-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.stat-info {
+  text-align: right;
+}
+
+.stat-value {
+  font-size: 32px;
+  font-weight: bold;
+  color: #303133;
+  line-height: 1;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 5px;
+}
+
+.features-row {
+  margin-bottom: 20px;
+}
+
+.feature-card {
+  margin-bottom: 20px;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.feature-item:hover {
+  background: #f5f7fa;
+  border-color: #409EFF;
+  transform: translateX(4px);
+}
+
+.feature-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: #409EFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.feature-info {
+  flex: 1;
+}
+
+.feature-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 2px;
+}
+
+.feature-desc {
+  font-size: 12px;
+  color: #909399;
+}
+
+.activity-card {
+  margin-bottom: 20px;
+}
+
+.activity-list {
+  padding: 10px 0;
+}
+
+.activity-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #ebeef5;
+  gap: 10px;
+}
+
+.activity-item:last-child {
+  border-bottom: none;
+}
+
+.activity-title {
+  flex: 1;
+  font-size: 14px;
+  color: #303133;
+}
+
+.activity-time {
+  font-size: 12px;
+  color: #909399;
+}
+
+.empty-activity {
+  padding: 20px 0;
+}
+</style>

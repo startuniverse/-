@@ -6,12 +6,14 @@ import com.education.platform.common.ApiResult;
 import com.education.platform.common.PageResult;
 import com.education.platform.entity.Announcement;
 import com.education.platform.entity.Grade;
+import com.education.platform.entity.School;
 import com.education.platform.entity.Student;
 import com.education.platform.entity.Timetable;
 import com.education.platform.entity.User;
 import com.education.platform.mapper.AnnouncementMapper;
 import com.education.platform.mapper.ClassMapper;
 import com.education.platform.mapper.GradeMapper;
+import com.education.platform.mapper.SchoolMapper;
 import com.education.platform.mapper.StudentMapper;
 import com.education.platform.mapper.TeacherMapper;
 import com.education.platform.mapper.TimetableMapper;
@@ -64,6 +66,9 @@ public class CampusPortalController {
 
     @Autowired
     private AnnouncementMapper announcementMapper;
+
+    @Autowired
+    private SchoolMapper schoolMapper;
 
     /**
      * 从token中获取用户ID的辅助方法
@@ -298,6 +303,40 @@ public class CampusPortalController {
                 user.setTitle(title);
                 logger.info("=== 设置 title: {}", title);
                 System.out.println("=== 设置 title: " + title);
+            }
+
+            // 处理学校名称（前端传递的是schoolName，需要转换为schoolId）
+            Object schoolNameObj = profileData.get("schoolName");
+            if (schoolNameObj != null) {
+                String schoolName = String.valueOf(schoolNameObj);
+                // 查询学校是否存在，如果不存在则创建
+                LambdaQueryWrapper<School> schoolWrapper = new LambdaQueryWrapper<>();
+                schoolWrapper.eq(School::getSchoolName, schoolName);
+                // 使用selectList而不是selectOne，避免多条记录报错
+                List<School> schools = schoolMapper.selectList(schoolWrapper);
+                School school = null;
+
+                if (schools != null && !schools.isEmpty()) {
+                    school = schools.get(0);  // 取第一条记录
+                    logger.info("=== 找到学校: {} (ID: {})", schoolName, school.getId());
+                    System.out.println("=== 找到学校: " + schoolName + " (ID: " + school.getId() + ")");
+                }
+
+                if (school == null) {
+                    // 创建新学校
+                    school = new School();
+                    school.setSchoolName(schoolName);
+                    school.setSchoolCode("S" + System.currentTimeMillis());
+                    school.setSchoolType("secondary");
+                    school.setAddress("待补充");
+                    school.setContactPerson("待补充");
+                    school.setContactPhone("待补充");
+                    school.setStatus(1);
+                    schoolMapper.insert(school);
+                    logger.info("=== 创建新学校: {} (ID: {})", schoolName, school.getId());
+                    System.out.println("=== 创建新学校: " + schoolName + " (ID: " + school.getId() + ")");
+                }
+                user.setSchoolId(school.getId());
             }
 
             logger.info("=== 准备更新的用户对象: {}", user);

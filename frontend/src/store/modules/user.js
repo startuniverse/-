@@ -25,6 +25,9 @@ export const useUserStore = defineStore('user', () => {
         userInfo.value = res.userInfo
         roles.value = res.userInfo.roles || []
         permissions.value = res.userInfo.permissions || []
+
+        // 将用户信息保存到localStorage，供路由守卫使用
+        localStorage.setItem('userInfo', JSON.stringify(res.userInfo))
       }
 
       return res
@@ -42,6 +45,10 @@ export const useUserStore = defineStore('user', () => {
       userInfo.value = res
       roles.value = res.roles || []
       permissions.value = res.permissions || []
+
+      // 同步到localStorage
+      localStorage.setItem('userInfo', JSON.stringify(res))
+
       return res
     } catch (error) {
       throw error
@@ -55,6 +62,7 @@ export const useUserStore = defineStore('user', () => {
     roles.value = []
     permissions.value = []
     localStorage.removeItem('token')
+    localStorage.removeItem('userInfo')
   }
 
   // 初始化

@@ -1,44 +1,59 @@
 <template>
   <div class="layout-container">
     <el-container class="main-container">
-      <!-- 侧边栏 -->
-      <el-aside :width="isCollapse ? '64px' : '200px'" class="sidebar">
+      <!-- 侧边栏 - 教师专属 -->
+      <el-aside :width="isCollapse ? '64px' : '200px'" class="sidebar teacher-sidebar">
         <div class="logo">
-          <h3 v-if="!isCollapse">教育局平台</h3>
-          <span v-else>教</span>
+          <h3 v-if="!isCollapse">教师工作台</h3>
+          <span v-else>师</span>
         </div>
         <el-menu
           :default-active="$route.path"
           class="el-menu-vertical"
           :collapse="isCollapse"
           router
-          background-color="#304156"
+          background-color="#1e3a5f"
           text-color="#bfcbd9"
           active-text-color="#409EFF"
         >
-          <el-menu-item index="/">
+          <el-menu-item index="/teacher">
             <el-icon><HomeFilled /></el-icon>
-            <template #title>仪表盘</template>
+            <template #title>教学仪表盘</template>
           </el-menu-item>
-          <el-menu-item index="/profile">
+
+          <el-menu-item index="/teacher/profile">
             <el-icon><User /></el-icon>
             <template #title>个人信息</template>
           </el-menu-item>
-          <el-menu-item index="/class">
-            <el-icon><School /></el-icon>
-            <template #title>班级信息</template>
+
+          <el-menu-item index="/teacher/my-students">
+            <el-icon><User /></el-icon>
+            <template #title>我的学生</template>
           </el-menu-item>
-          <el-menu-item index="/timetable">
-            <el-icon><Calendar /></el-icon>
-            <template #title>课程表</template>
-          </el-menu-item>
-          <el-menu-item index="/grades">
+
+          <el-menu-item index="/teacher/grade-management">
             <el-icon><Document /></el-icon>
-            <template #title>成绩查询</template>
+            <template #title>成绩管理</template>
           </el-menu-item>
-          <el-menu-item index="/announcements">
+
+          <el-menu-item index="/teacher/assignment">
+            <el-icon><Notebook /></el-icon>
+            <template #title>作业布置</template>
+          </el-menu-item>
+
+          <el-menu-item index="/teacher/timetable">
+            <el-icon><Calendar /></el-icon>
+            <template #title>我的课表</template>
+          </el-menu-item>
+
+          <el-menu-item index="/teacher/announcements">
             <el-icon><Bell /></el-icon>
-            <template #title>通知公告</template>
+            <template #title>发布通知</template>
+          </el-menu-item>
+
+          <el-menu-item index="/teacher/class-management">
+            <el-icon><School /></el-icon>
+            <template #title>班级管理</template>
           </el-menu-item>
         </el-menu>
       </el-aside>
@@ -50,6 +65,7 @@
             <el-button circle @click="toggleCollapse">
               <el-icon><Menu /></el-icon>
             </el-button>
+            <span class="role-badge">教师</span>
           </div>
           <div class="header-right">
             <span class="username">{{ userInfo?.realName }}</span>
@@ -62,6 +78,7 @@
               <template #dropdown>
                 <el-dropdown-menu>
                   <el-dropdown-item command="profile">个人中心</el-dropdown-item>
+                  <el-dropdown-item command="changePassword">修改密码</el-dropdown-item>
                   <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -90,10 +107,11 @@ import {
   Menu,
   HomeFilled,
   User,
-  School,
-  Calendar,
   Document,
-  Bell
+  Calendar,
+  Bell,
+  School,
+  Notebook
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -109,7 +127,11 @@ const toggleCollapse = () => {
 
 const handleCommand = (command) => {
   if (command === 'profile') {
-    router.push('/profile')
+    router.push('/teacher/profile')
+  } else if (command === 'changePassword') {
+    // 在个人信息页面已经有修改密码功能
+    router.push('/teacher/profile')
+    ElMessage.info('请在个人信息页面修改密码')
   } else if (command === 'logout') {
     ElMessageBox.confirm('确定要退出登录吗？', '提示', {
       confirmButtonText: '确定',
@@ -132,7 +154,6 @@ onMounted(() => {
       router.push('/login')
     })
   }
-  // 注意：管理员和教师也可以访问前台页面，不需要角色检查
 })
 </script>
 
@@ -146,9 +167,13 @@ onMounted(() => {
 }
 
 .sidebar {
-  background-color: #304156;
+  background-color: #1e3a5f;
   overflow: hidden;
   transition: width 0.3s;
+}
+
+.teacher-sidebar .logo {
+  background: linear-gradient(135deg, #1e3a5f 0%, #2d5a8f 100%);
 }
 
 .logo {
@@ -166,6 +191,15 @@ onMounted(() => {
   height: calc(100% - 60px);
 }
 
+.el-menu-vertical .el-menu-item {
+  border-left: 3px solid transparent;
+}
+
+.el-menu-vertical .el-menu-item.is-active {
+  background-color: #2d5a8f !important;
+  border-left-color: #409EFF;
+}
+
 .header {
   background-color: white;
   border-bottom: 1px solid #e6e6e6;
@@ -178,6 +212,16 @@ onMounted(() => {
 .header-left {
   display: flex;
   align-items: center;
+  gap: 10px;
+}
+
+.role-badge {
+  background: linear-gradient(135deg, #409EFF 0%, #337ecc 100%);
+  color: white;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .header-right {
