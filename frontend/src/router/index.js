@@ -2,6 +2,14 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
 const routes = [
+  // 门户网站首页 - 公共访问，不需要登录
+  {
+    path: '/',
+    name: 'Portal',
+    component: () => import('@/views/Portal.vue'),
+    meta: { title: '门户网站' }
+  },
+
   // 公共路由
   {
     path: '/login',
@@ -22,9 +30,9 @@ const routes = [
     meta: { title: '教师注册' }
   },
 
-  // 校园门户路由 - 普通用户（学生/家长）和管理员
+  // 校园门户路由 - 普通用户（学生/家长）和管理员 - 需要登录后访问
   {
-    path: '/',
+    path: '/campus',
     name: 'Layout',
     component: () => import('@/views/Layout.vue'),
     meta: { requiresAuth: true, roles: ['USER', 'STUDENT', 'PARENT', 'ADMIN', 'TEACHER'] },
@@ -64,6 +72,30 @@ const routes = [
         name: 'Announcements',
         component: () => import('@/views/campus/Announcements.vue'),
         meta: { title: '通知公告' }
+      },
+      {
+        path: 'status-change',
+        name: 'StatusChange',
+        component: () => import('@/views/campus/StatusChange.vue'),
+        meta: { title: '学籍异动' }
+      },
+      {
+        path: 'resources',
+        name: 'StudentResources',
+        component: () => import('@/views/campus/Resources.vue'),
+        meta: { title: '学习资源' }
+      },
+      {
+        path: 'training',
+        name: 'TrainingCourses',
+        component: () => import('@/views/campus/TrainingCourses.vue'),
+        meta: { title: '培训课程' }
+      },
+      {
+        path: 'my-training',
+        name: 'MyTraining',
+        component: () => import('@/views/campus/MyTraining.vue'),
+        meta: { title: '我的培训' }
       }
     ]
   },
@@ -108,7 +140,7 @@ const routes = [
       {
         path: 'timetable',
         name: 'TeacherTimetable',
-        component: () => import('@/views/campus/Timetable.vue'),
+        component: () => import('@/views/teacher/Timetable.vue'),
         meta: { title: '我的课表' }
       },
       {
@@ -168,6 +200,24 @@ const routes = [
         name: 'AssetManagement',
         component: () => import('@/views/admin/AssetManagement.vue'),
         meta: { title: '资产管理' }
+      },
+      {
+        path: 'status-change',
+        name: 'StudentStatusManagement',
+        component: () => import('@/views/admin/StudentStatusManagement.vue'),
+        meta: { title: '学籍异动管理' }
+      },
+      {
+        path: 'training',
+        name: 'TrainingManagement',
+        component: () => import('@/views/admin/TrainingManagement.vue'),
+        meta: { title: '培训管理' }
+      },
+      {
+        path: 'teacher-info',
+        name: 'TeacherInfoManagement',
+        component: () => import('@/views/admin/TeacherManagement.vue'),
+        meta: { title: '教师信息管理' }
       }
     ]
   },
@@ -203,6 +253,9 @@ router.beforeEach((to, from, next) => {
     return
   }
 
+  // 如果用户已登录且访问门户首页，可以显示门户，但建议跳转到个人中心
+  // 这里我们允许访问门户首页，但登录状态会在门户首页显示欢迎信息
+
   // 如果有token且需要角色权限检查
   if (token && to.meta.roles) {
     // 从localStorage获取用户信息
@@ -235,8 +288,8 @@ router.beforeEach((to, from, next) => {
             next('/admin/dashboard')
           } else if (!currentPath.startsWith('/campus') && currentPath !== '/') {
             // 如果用户没有角色，或者角色不在上述列表中，跳转到校园门户首页
-            ElMessage.warning('您没有访问该页面的权限，正在跳转到首页...')
-            next('/')
+            ElMessage.warning('您没有访问该页面的权限，正在跳转到校园门户...')
+            next('/campus')
           } else {
             // 如果已经在首页但没有权限，说明用户没有角色
             // 允许访问，但显示警告

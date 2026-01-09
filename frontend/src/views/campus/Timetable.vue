@@ -28,9 +28,9 @@
         </el-table-column>
         <el-table-column prop="period" label="节次" width="80" align="center" />
         <el-table-column prop="subject" label="科目" width="120" align="center" />
-        <el-table-column prop="teacherId" label="教师" width="120" align="center">
+        <el-table-column prop="teacherName" label="教师" width="120" align="center">
           <template #default="scope">
-            教师{{ scope.row.teacherId }}
+            {{ scope.row.teacherName || '未分配' }}
           </template>
         </el-table-column>
         <el-table-column prop="classroom" label="教室" width="120" align="center" />

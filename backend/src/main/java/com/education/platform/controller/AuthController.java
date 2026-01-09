@@ -1,8 +1,11 @@
 package com.education.platform.controller;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.education.platform.common.ApiResult;
+import com.education.platform.entity.Class;
 import com.education.platform.entity.School;
 import com.education.platform.entity.User;
+import com.education.platform.mapper.ClassMapper;
 import com.education.platform.mapper.SchoolMapper;
 import com.education.platform.service.IUserService;
 import com.education.platform.util.JwtUtils;
@@ -35,6 +38,9 @@ public class AuthController {
     @Autowired
     private SchoolMapper schoolMapper;
 
+    @Autowired
+    private ClassMapper classMapper;
+
     /**
      * 登录请求参数
      */
@@ -63,7 +69,13 @@ public class AuthController {
 
         private String phone;
         private String email;
-        private Long schoolId;
+
+        // 改为接收学校名称和班级名称，而不是ID
+        @NotBlank(message = "学校名称不能为空")
+        private String schoolName;
+
+        @NotBlank(message = "班级名称不能为空")
+        private String className;
     }
 
     /**
@@ -126,13 +138,58 @@ public class AuthController {
     @Operation(summary = "用户注册", description = "新用户注册（默认普通用户角色）")
     public ApiResult<Boolean> register(@Valid @RequestBody RegisterRequest request) {
         try {
+            // 1. 处理学校：查找或创建
+            Long schoolId = null;
+            LambdaQueryWrapper<School> schoolWrapper = new LambdaQueryWrapper<>();
+            schoolWrapper.eq(School::getSchoolName, request.getSchoolName());
+            School existingSchool = schoolMapper.selectOne(schoolWrapper);
+
+            if (existingSchool != null) {
+                schoolId = existingSchool.getId();
+            } else {
+                // 创建新学校
+                School newSchool = new School();
+                newSchool.setSchoolCode("S" + System.currentTimeMillis());
+                newSchool.setSchoolName(request.getSchoolName());
+                newSchool.setSchoolType("secondary"); // 默认为中学类型
+                newSchool.setAddress("待补充");
+                newSchool.setContactPerson("待补充");
+                newSchool.setContactPhone("待补充");
+                newSchool.setStatus(1);
+                schoolMapper.insert(newSchool);
+                schoolId = newSchool.getId();
+            }
+
+            // 2. 处理班级：查找或创建
+            Long classId = null;
+            LambdaQueryWrapper<Class> classWrapper = new LambdaQueryWrapper<>();
+            classWrapper.eq(Class::getSchoolId, schoolId);
+            classWrapper.eq(Class::getClassName, request.getClassName());
+            Class existingClass = classMapper.selectOne(classWrapper);
+
+            if (existingClass != null) {
+                classId = existingClass.getId();
+            } else {
+                // 创建新班级
+                Class newClass = new Class();
+                newClass.setSchoolId(schoolId);
+                newClass.setClassName(request.getClassName());
+                newClass.setClassCode("C" + System.currentTimeMillis());
+                newClass.setStatus(1);
+                newClass.setStudentCount(0);
+                classMapper.insert(newClass);
+                classId = newClass.getId();
+            }
+
+            // 3. 创建用户
             User user = new User();
             user.setUsername(request.getUsername());
             user.setPassword(request.getPassword());
             user.setRealName(request.getRealName());
             user.setPhone(request.getPhone());
             user.setEmail(request.getEmail());
-            user.setSchoolId(request.getSchoolId());
+            user.setSchoolId(schoolId);
+            user.setClassId(classId);
 
             Boolean success = userService.register(user);
             return ApiResult.success("注册成功", success);
@@ -205,12 +262,12 @@ public class AuthController {
                 System.out.println("=== 用户不存在，尝试创建默认用户: " + username);
                 user = new User();
                 user.setUsername(username);
-                user.setPassword("$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBa3BjR0v9bHri"); // admin123
+                user.setPassword("$2a$10$0FbH16apzWwgCl5/S6.FBezzcCMOkAuOkkTQk1JKo4vs02jztBsIq"); // admin
                 user.setRealName(username);  // 使用用户名作为真实姓名
                 user.setPhone("");  // 留空
                 user.setEmail("");  // 留空
                 user.setStatus(1);
-                user.setDeleted(0);
+                user.setDeleted(0);  // 逻辑删除字段
 
                 Boolean success = userService.register(user);
                 if (!success) {

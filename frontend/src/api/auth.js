@@ -42,3 +42,24 @@ export function getUserInfo() {
     method: 'get'
   })
 }
+
+/**
+ * 获取学校列表（公开接口）
+ */
+export function getSchoolList() {
+  return request({
+    url: '/backend/school/list',
+    method: 'get'
+  })
+}
+
+/**
+ * 获取班级列表（公开接口）
+ */
+export function getClassList(schoolId) {
+  return request({
+    url: '/backend/class/list',
+    method: 'get',
+    params: { schoolId }
+  })
+}

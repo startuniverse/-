@@ -30,12 +30,29 @@ export function getGradeManagement(params) {
   })
 }
 
-// 更新成绩
-export function updateGrade(data) {
+// 添加成绩
+export function addGrade(data) {
   return request({
-    url: '/teacher/grades/update',
+    url: '/teacher/grades',
     method: 'post',
     data
+  })
+}
+
+// 更新成绩
+export function updateGrade(id, data) {
+  return request({
+    url: `/teacher/grades/${id}`,
+    method: 'put',
+    data
+  })
+}
+
+// 删除成绩
+export function deleteGrade(id) {
+  return request({
+    url: `/teacher/grades/${id}`,
+    method: 'delete'
   })
 }
 
@@ -72,5 +89,56 @@ export function publishAnnouncement(data) {
     url: '/teacher/announcements',
     method: 'post',
     data
+  })
+}
+
+// 获取教师课程表
+export function getTeacherTimetable(params) {
+  return request({
+    url: '/teacher/timetable',
+    method: 'get',
+    params
+  })
+}
+
+// 添加课程表
+export function addTeacherTimetable(data) {
+  return request({
+    url: '/teacher/timetable',
+    method: 'post',
+    data
+  })
+}
+
+// 删除课程表
+export function deleteTeacherTimetable(id) {
+  return request({
+    url: `/teacher/timetable/${id}`,
+    method: 'delete'
+  })
+}
+
+// 批量添加课程表
+export function batchAddTeacherTimetable(data) {
+  return request({
+    url: '/teacher/timetable/batch',
+    method: 'post',
+    data
+  })
+}
+
+// 获取教师负责的班级列表
+export function getTeacherClasses() {
+  return request({
+    url: '/teacher/classes',
+    method: 'get'
+  })
+}
+
+// 获取教师班级的学生列表
+export function getTeacherStudents() {
+  return request({
+    url: '/teacher/students',
+    method: 'get'
   })
 }

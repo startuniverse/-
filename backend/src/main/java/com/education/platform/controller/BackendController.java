@@ -69,6 +69,9 @@ public class BackendController {
     @Autowired
     private IUserService userService;
 
+    @Autowired
+    private StudentStatusChangeMapper studentStatusChangeMapper;
+
     /**
      * 从token中获取用户ID的辅助方法
      */
@@ -848,6 +851,30 @@ public class BackendController {
     }
 
     /**
+     * 4.6.3 班级管理 - 列表（公开接口，用于注册时选择班级）
+     */
+    @GetMapping("/class/list")
+    @Operation(summary = "班级列表", description = "获取班级列表（公开接口）")
+    public ApiResult<List<com.education.platform.entity.Class>> listClasses(
+            @Parameter(description = "学校ID") @RequestParam(required = false) Long schoolId) {
+        try {
+            LambdaQueryWrapper<com.education.platform.entity.Class> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(com.education.platform.entity.Class::getStatus, 1);  // 只显示正常状态的班级
+
+            if (schoolId != null) {
+                wrapper.eq(com.education.platform.entity.Class::getSchoolId, schoolId);
+            }
+
+            wrapper.orderByAsc(com.education.platform.entity.Class::getId);
+            List<com.education.platform.entity.Class> classes = classMapper.selectList(wrapper);
+            return ApiResult.success(classes);
+        } catch (Exception e) {
+            System.err.println("查询班级列表失败: " + e.getMessage());
+            return ApiResult.error("查询班级列表失败: " + e.getMessage());
+        }
+    }
+
+    /**
      * 4.7.1 教师管理 - 列表
      */
     @GetMapping("/teacher/list")
@@ -1114,6 +1141,427 @@ public class BackendController {
             System.err.println("教师删除失败: " + e.getMessage());
             e.printStackTrace();
             return ApiResult.error("教师删除失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 4.8.1 学籍异动申请 - 学生提交申请
+     */
+    @PostMapping("/status-change/apply")
+    @Operation(summary = "学籍异动申请", description = "学生提交学籍异动申请")
+    @PreAuthorize("isAuthenticated()")
+    public ApiResult<Boolean> applyStatusChange(
+            @RequestBody StudentStatusChange change,
+            @RequestHeader(value = "Authorization", required = false) String token) {
+        try {
+            // 从token获取当前用户ID
+            Long currentUserId = getCurrentUserIdFromToken(token);
+            if (currentUserId == null) {
+                return ApiResult.error("未登录或登录已过期");
+            }
+
+            // 设置申请人ID
+            change.setUserId(currentUserId);
+
+            // 查询当前用户关联的学生信息
+            LambdaQueryWrapper<Student> studentWrapper = new LambdaQueryWrapper<>();
+            studentWrapper.eq(Student::getUserId, currentUserId);
+            Student student = studentMapper.selectOne(studentWrapper);
+            if (student == null) {
+                return ApiResult.error("未找到关联的学生信息");
+            }
+
+            // 设置学生ID
+            change.setStudentId(student.getId());
+
+            // 设置初始状态：待审核
+            change.setStatus(0);
+            change.setDeleted(0);
+
+            // 插入记录
+            int result = studentStatusChangeMapper.insert(change);
+            return ApiResult.success(result > 0);
+        } catch (Exception e) {
+            System.err.println("学籍异动申请失败: " + e.getMessage());
+            e.printStackTrace();
+            return ApiResult.error("学籍异动申请失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 4.8.2 学籍异动查询 - 管理员查询所有申请
+     */
+    @GetMapping("/status-change/list")
+    @Operation(summary = "学籍异动列表", description = "查询学籍异动申请列表（管理员）")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResult<PageResult<Map<String, Object>>> listStatusChanges(
+            @Parameter(description = "学生姓名") @RequestParam(required = false) String studentName,
+            @Parameter(description = "异动类型：1-休学，2-转学，3-复学，4-退学，5-其他") @RequestParam(required = false) Integer changeType,
+            @Parameter(description = "审核状态：0-待审核，1-已通过，2-已驳回") @RequestParam(required = false) Integer status,
+            @Parameter(description = "当前页") @RequestParam(defaultValue = "1") Long current,
+            @Parameter(description = "每页条数") @RequestParam(defaultValue = "10") Long size) {
+
+        Page<StudentStatusChange> page = new Page<>(current, size);
+        LambdaQueryWrapper<StudentStatusChange> wrapper = new LambdaQueryWrapper<>();
+
+        // 条件查询
+        if (changeType != null) {
+            wrapper.eq(StudentStatusChange::getChangeType, changeType);
+        }
+        if (status != null) {
+            wrapper.eq(StudentStatusChange::getStatus, status);
+        }
+
+        // 按时间倒序排列
+        wrapper.orderByDesc(StudentStatusChange::getCreatedAt);
+
+        Page<StudentStatusChange> result = studentStatusChangeMapper.selectPage(page, wrapper);
+
+        // 关联查询学生和用户信息
+        List<Map<String, Object>> records = new java.util.ArrayList<>();
+        for (StudentStatusChange change : result.getRecords()) {
+            Map<String, Object> map = new java.util.HashMap<>();
+            map.put("id", change.getId());
+            map.put("changeType", change.getChangeType());
+            map.put("reason", change.getReason());
+            map.put("startDate", change.getStartDate());
+            map.put("endDate", change.getEndDate());
+            map.put("targetSchool", change.getTargetSchool());
+            map.put("status", change.getStatus());
+            map.put("approvalComment", change.getApprovalComment());
+            map.put("approvalTime", change.getApprovalTime());
+            map.put("createdAt", change.getCreatedAt());
+
+            // 查询学生信息
+            Student student = studentMapper.selectById(change.getStudentId());
+            if (student != null) {
+                map.put("studentNumber", student.getStudentNumber());
+                map.put("classId", student.getClassId());
+
+                // 查询学生姓名（通过用户表）
+                User user = userMapper.selectById(student.getUserId());
+                if (user != null) {
+                    map.put("studentName", user.getRealName());
+                }
+
+                // 查询班级名称
+                com.education.platform.entity.Class classInfo = classMapper.selectById(student.getClassId());
+                if (classInfo != null) {
+                    map.put("className", classInfo.getClassName());
+                }
+            }
+
+            // 查询审核人信息
+            if (change.getApproverId() != null) {
+                User approver = userMapper.selectById(change.getApproverId());
+                if (approver != null) {
+                    map.put("approverName", approver.getRealName());
+                }
+            }
+
+            // 查询申请人信息
+            if (change.getUserId() != null) {
+                User applicant = userMapper.selectById(change.getUserId());
+                if (applicant != null) {
+                    map.put("applicantName", applicant.getRealName());
+                }
+            }
+
+            // 根据changeType转换中文描述
+            String typeDesc = "";
+            switch (change.getChangeType()) {
+                case 1: typeDesc = "休学"; break;
+                case 2: typeDesc = "转学"; break;
+                case 3: typeDesc = "复学"; break;
+                case 4: typeDesc = "退学"; break;
+                case 5: typeDesc = "其他"; break;
+                default: typeDesc = "未知";
+            }
+            map.put("changeTypeDesc", typeDesc);
+
+            // 根据status转换中文描述
+            String statusDesc = "";
+            switch (change.getStatus()) {
+                case 0: statusDesc = "待审核"; break;
+                case 1: statusDesc = "已通过"; break;
+                case 2: statusDesc = "已驳回"; break;
+                default: statusDesc = "未知";
+            }
+            map.put("statusDesc", statusDesc);
+
+            records.add(map);
+        }
+
+        Page<Map<String, Object>> finalPage = new Page<>(current, size);
+        finalPage.setRecords(records);
+        finalPage.setTotal(result.getTotal());
+        finalPage.setSize(result.getSize());
+        finalPage.setCurrent(result.getCurrent());
+
+        return ApiResult.success(PageResult.of(finalPage));
+    }
+
+    /**
+     * 4.8.3 学籍异动查询 - 学生查询自己的申请
+     */
+    @GetMapping("/status-change/my-list")
+    @Operation(summary = "我的学籍异动", description = "查询当前学生的学籍异动申请")
+    @PreAuthorize("isAuthenticated()")
+    public ApiResult<PageResult<Map<String, Object>>> listMyStatusChanges(
+            @RequestHeader(value = "Authorization", required = false) String token,
+            @Parameter(description = "当前页") @RequestParam(defaultValue = "1") Long current,
+            @Parameter(description = "每页条数") @RequestParam(defaultValue = "10") Long size) {
+
+        // 从token获取当前用户ID
+        Long currentUserId = getCurrentUserIdFromToken(token);
+        if (currentUserId == null) {
+            return ApiResult.error("未登录或登录已过期");
+        }
+
+        // 查询当前用户关联的学生
+        LambdaQueryWrapper<Student> studentWrapper = new LambdaQueryWrapper<>();
+        studentWrapper.eq(Student::getUserId, currentUserId);
+        Student student = studentMapper.selectOne(studentWrapper);
+        if (student == null) {
+            return ApiResult.error("未找到关联的学生信息");
+        }
+
+        Page<StudentStatusChange> page = new Page<>(current, size);
+        LambdaQueryWrapper<StudentStatusChange> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(StudentStatusChange::getStudentId, student.getId());
+        wrapper.orderByDesc(StudentStatusChange::getCreatedAt);
+
+        Page<StudentStatusChange> result = studentStatusChangeMapper.selectPage(page, wrapper);
+
+        // 构建返回数据
+        List<Map<String, Object>> records = new java.util.ArrayList<>();
+        for (StudentStatusChange change : result.getRecords()) {
+            Map<String, Object> map = new java.util.HashMap<>();
+            map.put("id", change.getId());
+            map.put("changeType", change.getChangeType());
+            map.put("reason", change.getReason());
+            map.put("startDate", change.getStartDate());
+            map.put("endDate", change.getEndDate());
+            map.put("targetSchool", change.getTargetSchool());
+            map.put("status", change.getStatus());
+            map.put("approvalComment", change.getApprovalComment());
+            map.put("approvalTime", change.getApprovalTime());
+            map.put("createdAt", change.getCreatedAt());
+
+            // 根据changeType转换中文描述
+            String typeDesc = "";
+            switch (change.getChangeType()) {
+                case 1: typeDesc = "休学"; break;
+                case 2: typeDesc = "转学"; break;
+                case 3: typeDesc = "复学"; break;
+                case 4: typeDesc = "退学"; break;
+                case 5: typeDesc = "其他"; break;
+                default: typeDesc = "未知";
+            }
+            map.put("changeTypeDesc", typeDesc);
+
+            // 根据status转换中文描述
+            String statusDesc = "";
+            switch (change.getStatus()) {
+                case 0: statusDesc = "待审核"; break;
+                case 1: statusDesc = "已通过"; break;
+                case 2: statusDesc = "已驳回"; break;
+                default: statusDesc = "未知";
+            }
+            map.put("statusDesc", statusDesc);
+
+            records.add(map);
+        }
+
+        Page<Map<String, Object>> finalPage = new Page<>(current, size);
+        finalPage.setRecords(records);
+        finalPage.setTotal(result.getTotal());
+        finalPage.setSize(result.getSize());
+        finalPage.setCurrent(result.getCurrent());
+
+        return ApiResult.success(PageResult.of(finalPage));
+    }
+
+    /**
+     * 4.8.4 学籍异动审核 - 管理员审核申请
+     */
+    @PostMapping("/status-change/approve")
+    @Operation(summary = "审核学籍异动", description = "管理员审核学籍异动申请")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResult<Boolean> approveStatusChange(
+            @Parameter(description = "申请ID") @RequestParam Long id,
+            @Parameter(description = "审核状态：1-通过，2-驳回") @RequestParam Integer status,
+            @Parameter(description = "审核意见") @RequestParam(required = false) String approvalComment,
+            @RequestHeader(value = "Authorization", required = false) String token) {
+
+        try {
+            // 验证申请是否存在
+            StudentStatusChange change = studentStatusChangeMapper.selectById(id);
+            if (change == null) {
+                return ApiResult.error("申请不存在");
+            }
+
+            // 验证状态是否为待审核
+            if (change.getStatus() != 0) {
+                return ApiResult.error("该申请已被审核，不能重复审核");
+            }
+
+            // 从token获取审核人ID
+            Long currentUserId = getCurrentUserIdFromToken(token);
+            if (currentUserId == null) {
+                currentUserId = 1L; // 默认管理员
+            }
+
+            // 更新审核信息
+            change.setStatus(status);
+            change.setApprovalComment(approvalComment);
+            change.setApproverId(currentUserId);
+            change.setApprovalTime(java.time.LocalDateTime.now());
+
+            int result = studentStatusChangeMapper.updateById(change);
+
+            // 如果审核通过，可能需要更新学生状态（这里可以根据业务需求扩展）
+            if (status == 1) {
+                // 审核通过后的业务逻辑（可选）
+                // 例如：如果是退学，将学生状态改为退学
+                // 如果是休学，将学生状态改为休学
+                // 这里可以根据changeType做相应处理
+            }
+
+            return ApiResult.success(result > 0);
+        } catch (Exception e) {
+            System.err.println("审核学籍异动失败: " + e.getMessage());
+            e.printStackTrace();
+            return ApiResult.error("审核学籍异动失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 4.8.5 学籍异动删除 - 删除申请（仅管理员）
+     */
+    @DeleteMapping("/status-change/delete")
+    @Operation(summary = "删除学籍异动", description = "删除学籍异动申请")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResult<Boolean> deleteStatusChange(
+            @Parameter(description = "申请ID") @RequestParam Long id) {
+        try {
+            // 验证申请是否存在
+            StudentStatusChange change = studentStatusChangeMapper.selectById(id);
+            if (change == null) {
+                return ApiResult.error("申请不存在");
+            }
+
+            // 逻辑删除
+            int result = studentStatusChangeMapper.deleteById(id);
+            return ApiResult.success(result > 0);
+        } catch (Exception e) {
+            System.err.println("删除学籍异动失败: " + e.getMessage());
+            e.printStackTrace();
+            return ApiResult.error("删除学籍异动失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 4.8.6 学籍异动统计 - 管理员查看统计信息
+     */
+    @GetMapping("/status-change/statistics")
+    @Operation(summary = "学籍异动统计", description = "学籍异动申请统计")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResult<Map<String, Object>> statusChangeStatistics() {
+        try {
+            // 统计总数
+            LambdaQueryWrapper<StudentStatusChange> totalWrapper = new LambdaQueryWrapper<>();
+            Long total = studentStatusChangeMapper.selectCount(totalWrapper);
+
+            // 统计待审核
+            LambdaQueryWrapper<StudentStatusChange> pendingWrapper = new LambdaQueryWrapper<>();
+            pendingWrapper.eq(StudentStatusChange::getStatus, 0);
+            Long pending = studentStatusChangeMapper.selectCount(pendingWrapper);
+
+            // 统计已通过
+            LambdaQueryWrapper<StudentStatusChange> approvedWrapper = new LambdaQueryWrapper<>();
+            approvedWrapper.eq(StudentStatusChange::getStatus, 1);
+            Long approved = studentStatusChangeMapper.selectCount(approvedWrapper);
+
+            // 统计已驳回
+            LambdaQueryWrapper<StudentStatusChange> rejectedWrapper = new LambdaQueryWrapper<>();
+            rejectedWrapper.eq(StudentStatusChange::getStatus, 2);
+            Long rejected = studentStatusChangeMapper.selectCount(rejectedWrapper);
+
+            // 按类型统计
+            Map<String, Long> typeStats = new HashMap<>();
+            for (int i = 1; i <= 5; i++) {
+                LambdaQueryWrapper<StudentStatusChange> typeWrapper = new LambdaQueryWrapper<>();
+                typeWrapper.eq(StudentStatusChange::getChangeType, i);
+                Long count = studentStatusChangeMapper.selectCount(typeWrapper);
+                typeStats.put(String.valueOf(i), count);
+            }
+
+            Map<String, Object> stats = new HashMap<>();
+            stats.put("total", total);
+            stats.put("pending", pending);
+            stats.put("approved", approved);
+            stats.put("rejected", rejected);
+            stats.put("typeStats", typeStats);
+
+            return ApiResult.success(stats);
+        } catch (Exception e) {
+            System.err.println("统计学籍异动失败: " + e.getMessage());
+            return ApiResult.error("统计学籍异动失败: " + e.getMessage());
+        }
+    }
+
+    @Autowired
+    private com.education.platform.mapper.ClassApplicationMapper classApplicationMapper;
+
+    /**
+     * 获取学生统计信息
+     */
+    @GetMapping("/student/statistics")
+    @Operation(summary = "学生统计", description = "获取学生统计信息")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResult<Map<String, Object>> studentStatistics() {
+        try {
+            // 统计总学生数
+            LambdaQueryWrapper<Student> totalWrapper = new LambdaQueryWrapper<>();
+            Long total = studentMapper.selectCount(totalWrapper);
+
+            // 统计在读学生
+            LambdaQueryWrapper<Student> inSchoolWrapper = new LambdaQueryWrapper<>();
+            inSchoolWrapper.eq(Student::getStatus, 1);
+            Long inSchool = studentMapper.selectCount(inSchoolWrapper);
+
+            Map<String, Object> stats = new HashMap<>();
+            stats.put("total", total);
+            stats.put("inSchool", inSchool);
+
+            return ApiResult.success(stats);
+        } catch (Exception e) {
+            System.err.println("统计学生信息失败: " + e.getMessage());
+            return ApiResult.error("统计学生信息失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取班级统计信息
+     */
+    @GetMapping("/class/statistics")
+    @Operation(summary = "班级统计", description = "获取班级统计信息")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResult<Map<String, Object>> classStatistics() {
+        try {
+            // 统计总班级数
+            LambdaQueryWrapper<com.education.platform.entity.Class> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(com.education.platform.entity.Class::getStatus, 1);
+            Long total = classMapper.selectCount(wrapper);
+
+            Map<String, Object> stats = new HashMap<>();
+            stats.put("total", total);
+
+            return ApiResult.success(stats);
+        } catch (Exception e) {
+            System.err.println("统计班级信息失败: " + e.getMessage());
+            return ApiResult.error("统计班级信息失败: " + e.getMessage());
         }
     }
 }

@@ -16,29 +16,45 @@
           text-color="#bfcbd9"
           active-text-color="#409EFF"
         >
-          <el-menu-item index="/">
+          <el-menu-item index="/campus">
             <el-icon><HomeFilled /></el-icon>
             <template #title>仪表盘</template>
           </el-menu-item>
-          <el-menu-item index="/profile">
+          <el-menu-item index="/campus/profile">
             <el-icon><User /></el-icon>
             <template #title>个人信息</template>
           </el-menu-item>
-          <el-menu-item index="/class">
+          <el-menu-item index="/campus/class">
             <el-icon><School /></el-icon>
             <template #title>班级信息</template>
           </el-menu-item>
-          <el-menu-item index="/timetable">
+          <el-menu-item index="/campus/timetable">
             <el-icon><Calendar /></el-icon>
             <template #title>课程表</template>
           </el-menu-item>
-          <el-menu-item index="/grades">
+          <el-menu-item index="/campus/grades">
             <el-icon><Document /></el-icon>
             <template #title>成绩查询</template>
           </el-menu-item>
-          <el-menu-item index="/announcements">
+          <el-menu-item index="/campus/announcements">
             <el-icon><Bell /></el-icon>
             <template #title>通知公告</template>
+          </el-menu-item>
+          <el-menu-item index="/campus/status-change">
+            <el-icon><Document /></el-icon>
+            <template #title>学籍异动</template>
+          </el-menu-item>
+          <el-menu-item index="/campus/resources">
+            <el-icon><Collection /></el-icon>
+            <template #title>学习资源</template>
+          </el-menu-item>
+          <el-menu-item index="/campus/training">
+            <el-icon><Notebook /></el-icon>
+            <template #title>培训课程</template>
+          </el-menu-item>
+          <el-menu-item index="/campus/my-training">
+            <el-icon><Finished /></el-icon>
+            <template #title>我的培训</template>
           </el-menu-item>
         </el-menu>
       </el-aside>
@@ -93,7 +109,10 @@ import {
   School,
   Calendar,
   Document,
-  Bell
+  Bell,
+  Collection,
+  Notebook,
+  Finished
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -109,7 +128,7 @@ const toggleCollapse = () => {
 
 const handleCommand = (command) => {
   if (command === 'profile') {
-    router.push('/profile')
+    router.push('/campus/profile')
   } else if (command === 'logout') {
     ElMessageBox.confirm('确定要退出登录吗？', '提示', {
       confirmButtonText: '确定',
@@ -118,7 +137,7 @@ const handleCommand = (command) => {
     }).then(() => {
       userStore.logout()
       ElMessage.success('已退出登录')
-      router.push('/login')
+      router.push('/')  // 退出后返回门户首页
     }).catch(() => {})
   }
 }

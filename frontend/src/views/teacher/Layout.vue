@@ -140,7 +140,7 @@ const handleCommand = (command) => {
     }).then(() => {
       userStore.logout()
       ElMessage.success('已退出登录')
-      router.push('/login')
+      router.push('/')  // 退出后返回门户首页
     }).catch(() => {})
   }
 }

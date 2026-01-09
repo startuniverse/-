@@ -40,6 +40,18 @@
             <el-icon><Box /></el-icon>
             <template #title>资产管理</template>
           </el-menu-item>
+          <el-menu-item index="/admin/status-change">
+            <el-icon><Document /></el-icon>
+            <template #title>学籍异动管理</template>
+          </el-menu-item>
+          <el-menu-item index="/admin/training">
+            <el-icon><Notebook /></el-icon>
+            <template #title>培训管理</template>
+          </el-menu-item>
+          <el-menu-item index="/admin/teacher-info">
+            <el-icon><UserFilled /></el-icon>
+            <template #title>教师信息管理</template>
+          </el-menu-item>
         </el-menu>
       </el-aside>
 
@@ -94,7 +106,9 @@ import {
   Document,
   Folder,
   DataAnalysis,
-  Box
+  Box,
+  Notebook,
+  UserFilled
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -110,7 +124,7 @@ const toggleCollapse = () => {
 
 const handleCommand = (command) => {
   if (command === 'home') {
-    router.push('/')
+    router.push('/')  // 返回门户首页
   } else if (command === 'logout') {
     ElMessageBox.confirm('确定要退出登录吗？', '提示', {
       confirmButtonText: '确定',
@@ -119,7 +133,7 @@ const handleCommand = (command) => {
     }).then(() => {
       userStore.logout()
       ElMessage.success('已退出登录')
-      router.push('/login')
+      router.push('/')  // 退出后返回门户首页
     }).catch(() => {})
   }
 }

@@ -129,7 +129,10 @@
 
         <!-- 底部链接 -->
         <div class="register-footer">
-          <div style="margin-bottom: 10px;">
+          <div style="margin-bottom: 10px; display: flex; justify-content: center; gap: 15px;">
+            <el-link type="primary" @click="$router.push('/')">
+              返回首页
+            </el-link>
             <el-link type="primary" @click="$router.push('/login')">
               已有账户？立即登录
             </el-link>

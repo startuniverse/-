@@ -10,9 +10,9 @@
               <p>今天是 {{ currentDate }}，祝您有美好的一天</p>
             </div>
             <div class="quick-actions">
-              <el-button type="primary" @click="$router.push('/profile')">个人信息</el-button>
-              <el-button @click="$router.push('/timetable')">课程表</el-button>
-              <el-button @click="$router.push('/grades')">成绩查询</el-button>
+              <el-button type="primary" @click="$router.push('/campus/profile')">个人信息</el-button>
+              <el-button @click="$router.push('/campus/timetable')">课程表</el-button>
+              <el-button @click="$router.push('/campus/grades')">成绩查询</el-button>
             </div>
           </div>
         </el-card>
@@ -103,7 +103,7 @@
           <template #header>
             <div class="card-header">
               <span>最近通知</span>
-              <el-button link @click="$router.push('/announcements')">查看全部</el-button>
+              <el-button link @click="$router.push('/campus/announcements')">查看全部</el-button>
             </div>
           </template>
           <div v-if="dashboard.recentNotifications && dashboard.recentNotifications.length > 0" class="notice-list">

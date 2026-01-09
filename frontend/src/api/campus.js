@@ -84,3 +84,67 @@ export function changePassword(data) {
     data
   })
 }
+
+/**
+ * 提交学籍异动申请
+ */
+export function applyStatusChange(data) {
+  return request({
+    url: '/backend/status-change/apply',
+    method: 'post',
+    data
+  })
+}
+
+/**
+ * 获取我的学籍异动列表
+ */
+export function getMyStatusChanges(params) {
+  return request({
+    url: '/backend/status-change/my-list',
+    method: 'get',
+    params
+  })
+}
+
+/**
+ * 获取学习资源列表
+ */
+export function getStudentResources(params) {
+  return request({
+    url: '/resource/list',
+    method: 'get',
+    params
+  })
+}
+
+/**
+ * 下载资源
+ */
+export function downloadResource(id) {
+  return request({
+    url: `/resource/download/${id}`,
+    method: 'post'
+  })
+}
+
+/**
+ * 分享资源
+ */
+export function shareResource(id) {
+  return request({
+    url: '/resource/share',
+    method: 'post',
+    params: { id }
+  })
+}
+
+/**
+ * 获取资源详情（增加浏览次数）
+ */
+export function getResourceDetail(id) {
+  return request({
+    url: `/resource/detail/${id}`,
+    method: 'get'
+  })
+}

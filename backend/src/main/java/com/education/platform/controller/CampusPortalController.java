@@ -8,6 +8,7 @@ import com.education.platform.entity.Announcement;
 import com.education.platform.entity.Grade;
 import com.education.platform.entity.School;
 import com.education.platform.entity.Student;
+import com.education.platform.entity.Teacher;
 import com.education.platform.entity.Timetable;
 import com.education.platform.entity.User;
 import com.education.platform.mapper.AnnouncementMapper;
@@ -467,6 +468,20 @@ public class CampusPortalController {
                 return ApiResult.success(result);
             }
 
+            // 获取班主任姓名
+            String headTeacherName = "";
+            if (classInfo.getHeadTeacherId() != null) {
+                // 先通过teacherId查询Teacher表
+                Teacher teacher = teacherMapper.selectById(classInfo.getHeadTeacherId());
+                if (teacher != null && teacher.getUserId() != null) {
+                    // 再通过userId查询User表获取真实姓名
+                    User teacherUser = userMapper.selectById(teacher.getUserId());
+                    if (teacherUser != null) {
+                        headTeacherName = teacherUser.getRealName();
+                    }
+                }
+            }
+
             // 获取班级学生列表
             LambdaQueryWrapper<Student> wrapper = new LambdaQueryWrapper<>();
             wrapper.eq(Student::getClassId, classId);
@@ -497,8 +512,21 @@ public class CampusPortalController {
                 studentList.add(studentInfo);
             }
 
+            // 构建返回的班级信息对象，包含headTeacherName
+            Map<String, Object> classInfoMap = new HashMap<>();
+            classInfoMap.put("id", classInfo.getId());
+            classInfoMap.put("schoolId", classInfo.getSchoolId());
+            classInfoMap.put("className", classInfo.getClassName());
+            classInfoMap.put("classCode", classInfo.getClassCode());
+            classInfoMap.put("grade", classInfo.getGrade());
+            classInfoMap.put("academicYear", classInfo.getAcademicYear());
+            classInfoMap.put("headTeacherId", classInfo.getHeadTeacherId());
+            classInfoMap.put("headTeacherName", headTeacherName);
+            classInfoMap.put("studentCount", students.size());
+            classInfoMap.put("status", classInfo.getStatus());
+
             Map<String, Object> result = new HashMap<>();
-            result.put("classInfo", classInfo);
+            result.put("classInfo", classInfoMap);
             result.put("studentCount", students.size());
             result.put("students", studentList);
 
@@ -513,7 +541,7 @@ public class CampusPortalController {
      */
     @GetMapping("/timetable")
     @Operation(summary = "获取课程表", description = "获取用户的课程表")
-    public ApiResult<List<Timetable>> getTimetable(
+    public ApiResult<List<Map<String, Object>>> getTimetable(
             @RequestHeader(value = "Authorization", required = false) String token,
             @Parameter(description = "星期几 (1-7)")
             @RequestParam(required = false) Integer weekDay) {
@@ -544,7 +572,42 @@ public class CampusPortalController {
             wrapper.orderByAsc(Timetable::getWeekDay, Timetable::getPeriod);
 
             List<Timetable> timetables = timetableMapper.selectList(wrapper);
-            return ApiResult.success(timetables);
+
+            // 构建返回结果，包含教师姓名
+            List<Map<String, Object>> result = new ArrayList<>();
+            for (Timetable timetable : timetables) {
+                Map<String, Object> item = new HashMap<>();
+                item.put("id", timetable.getId());
+                item.put("classId", timetable.getClassId());
+                item.put("teacherId", timetable.getTeacherId());
+                item.put("subject", timetable.getSubject());
+                item.put("weekDay", timetable.getWeekDay());
+                item.put("period", timetable.getPeriod());
+                item.put("startTime", timetable.getStartTime());
+                item.put("endTime", timetable.getEndTime());
+                item.put("classroom", timetable.getClassroom());
+                item.put("academicWeek", timetable.getAcademicWeek());
+
+                // 获取教师姓名
+                String teacherName = "";
+                try {
+                    // 通过teacher_id查询teacher表，再通过user_id查询user表获取姓名
+                    Teacher teacher = teacherMapper.selectById(timetable.getTeacherId());
+                    if (teacher != null && teacher.getUserId() != null) {
+                        User teacherUser = userMapper.selectById(teacher.getUserId());
+                        if (teacherUser != null) {
+                            teacherName = teacherUser.getRealName();
+                        }
+                    }
+                } catch (Exception e) {
+                    System.out.println("获取教师姓名失败: " + e.getMessage());
+                }
+                item.put("teacherName", teacherName);
+
+                result.add(item);
+            }
+
+            return ApiResult.success(result);
         } catch (Exception e) {
             return ApiResult.error("加载课程表失败: " + e.getMessage());
         }

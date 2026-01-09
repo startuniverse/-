@@ -60,6 +60,21 @@
           />
         </el-form-item>
 
+        <el-form-item prop="schoolName">
+          <el-input
+            v-model="registerForm.schoolName"
+            placeholder="请输入学校名称"
+            :prefix-icon="School"
+          />
+        </el-form-item>
+
+        <el-form-item prop="className">
+          <el-input
+            v-model="registerForm.className"
+            placeholder="请输入班级名称（如：高三1班）"
+          />
+        </el-form-item>
+
         <el-form-item>
           <el-button
             type="primary"
@@ -72,9 +87,14 @@
         </el-form-item>
 
         <div class="register-footer">
-          <el-link type="primary" @click="$router.push('/login')">
-            已有账户？立即登录
-          </el-link>
+          <div style="display: flex; justify-content: center; gap: 15px;">
+            <el-link type="primary" @click="$router.push('/')">
+              返回首页
+            </el-link>
+            <el-link type="primary" @click="$router.push('/login')">
+              已有账户？立即登录
+            </el-link>
+          </div>
         </div>
       </el-form>
     </div>
@@ -85,7 +105,7 @@
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { User, Lock, Phone } from '@element-plus/icons-vue'
+import { User, Lock, Phone, School } from '@element-plus/icons-vue'
 import { register } from '@/api/auth'
 
 const router = useRouter()
@@ -94,6 +114,10 @@ const registerFormRef = ref()
 const loading = ref(false)
 const forestCanvas = ref(null)
 let animationId = null
+
+// 学校和班级数据（不再需要从后端获取）
+const schoolList = ref([])
+const classList = ref([])
 
 // 森林粒子类（绿色叶子）
 class Leaf {
@@ -282,7 +306,9 @@ const registerForm = reactive({
   password: '',
   confirmPassword: '',
   realName: '',
-  phone: ''
+  phone: '',
+  schoolName: '',
+  className: ''
 })
 
 const validatePass = (rule, value, callback) => {
@@ -323,8 +349,16 @@ const registerRules = {
   phone: [
     { required: true, message: '请输入手机号', trigger: 'blur' },
     { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }
+  ],
+  schoolName: [
+    { required: true, message: '请输入学校名称', trigger: 'blur' }
+  ],
+  className: [
+    { required: true, message: '请输入班级名称', trigger: 'blur' }
   ]
 }
+
+// 不再需要加载学校和班级列表
 
 const handleRegister = async () => {
   if (!registerFormRef.value) return
@@ -337,7 +371,9 @@ const handleRegister = async () => {
           username: registerForm.username,
           password: registerForm.password,
           realName: registerForm.realName,
-          phone: registerForm.phone
+          phone: registerForm.phone,
+          schoolName: registerForm.schoolName,
+          className: registerForm.className
         }
         await register(data)
         ElMessage.success('注册成功')

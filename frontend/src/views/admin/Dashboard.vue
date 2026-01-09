@@ -52,6 +52,10 @@
               <el-icon><DataAnalysis /></el-icon>
               <span>数据分析</span>
             </div>
+            <div class="action-item" @click="$router.push('/admin/teacher-info')">
+              <el-icon><UserFilled /></el-icon>
+              <span>教师信息</span>
+            </div>
           </div>
         </el-card>
       </el-col>
@@ -122,7 +126,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { getAdminDashboard } from '@/api/admin'
-import { User, Document, Folder, DataAnalysis } from '@element-plus/icons-vue'
+import { User, Document, Folder, DataAnalysis, UserFilled } from '@element-plus/icons-vue'
 
 const stats = ref({
   systemName: '城市教育局综合信息服务平台',

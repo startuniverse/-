@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:body>
+    <!-- 封面 -->
+    <w:p>
+      <w:pPr><w:jc w:val="center"/></w:pPr>
+      <w:r><w:rPr><w:b/><w:sz w:val="48"/></w:rPr><w:t>专 业 实 习 报 告</w:t></w:r>
+    </w:p>
+    <w:p><w:r><w:t></w:t></w:r></w:p>
+    <w:p><w:r><w:t></w:t></w:r></w:p>
+    <w:p><w:r><w:t></w:t></w:r></w:p>
+
+    <w:p>
+      <w:pPr><w:ind w:left="2000"/></w:pPr>
+      <w:r><w:t>项    目：      某市教育局综合信息服务平台         </w:t></w:r>
+    </w:p>
+    <w:p>
+      <w:pPr><w:ind w:left="2000"/></w:pPr>
+      <w:r><w:t>学    院：      计算机与信息学院               </w:t></w:r>
+    </w:p>
+    <w:p>
+      <w:pPr><w:ind w:left="2000"/></w:pPr>
+      <w:r><w:t>学    号：      2021XXXXXX                  </w:t></w:r>
+    </w:p>
+    <w:p>
+      <w:pPr><w:ind w:left="2000"/></w:pPr>
+      <w:r><w:t>专    业：      计算机科学与技术               </w:t></w:r>
+    </w:p>
+    <w:p>
+      <w:pPr><w:ind w:left="2000"/></w:pPr>
+      <w:r><w:t>指导教师：      XXX老师                      </w:t></w:r>
+    </w:p>
+    <w:p>
+      <w:pPr><w:ind w:left="2000"/></w:pPr>
+      <w:r><w:t>学生姓名：      XXX                          </w:t></w:r>
+    </w:p>
+    <w:p>
+      <w:pPr><w:ind w:left="2000"/></w:pPr>
+      <w:r><w:t>完成日期：      2025年1月                     </w:t></w:r>
+    </w:p>
+
+    <!-- 目录 -->
+    <w:sectPr>
+      <w:pgSz w:w="12240" w:h="15840"/>
+      <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="720" w:footer="720" w:gutter="0"/>
+      <w:cols w:space="720"/>
+      <w:docGrid w:type="lines" w:linePitch="312"/>
+    </w:sectPr>
+  </w:body>
+</w:document>

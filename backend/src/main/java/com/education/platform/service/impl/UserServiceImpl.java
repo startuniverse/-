@@ -3,9 +3,13 @@ package com.education.platform.service.impl;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.education.platform.entity.Role;
 import com.education.platform.entity.School;
+import com.education.platform.entity.Student;
+import com.education.platform.entity.Teacher;
 import com.education.platform.entity.User;
 import com.education.platform.mapper.RoleMapper;
 import com.education.platform.mapper.SchoolMapper;
+import com.education.platform.mapper.StudentMapper;
+import com.education.platform.mapper.TeacherMapper;
 import com.education.platform.mapper.UserMapper;
 import com.education.platform.service.IUserService;
 import com.education.platform.util.JwtUtils;
@@ -15,6 +19,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -38,6 +43,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
     @Autowired
     private SchoolMapper schoolMapper;
+
+    @Autowired
+    private StudentMapper studentMapper;
+
+    @Autowired
+    private TeacherMapper teacherMapper;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -95,12 +106,25 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         // 密码加密
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         user.setStatus(1);
+        user.setDeleted(0);  // 设置逻辑删除字段
 
         // 插入用户
         int result = userMapper.insert(user);
         if (result > 0) {
             // 默认分配USER角色
             assignRole(user.getId(), "USER");
+
+            // 自动创建学生档案
+            Student student = new Student();
+            student.setUserId(user.getId());
+            student.setStudentNumber("STU" + System.currentTimeMillis());  // 生成学号
+            student.setClassId(user.getClassId());  // 使用用户表中的班级ID
+            student.setEnrollmentDate(LocalDate.now());  // 入学日期为当前日期
+            student.setStatus(1);  // 在读状态
+            student.setDeleted(0);
+
+            // 插入学生记录
+            studentMapper.insert(student);
         }
         return result > 0;
     }
@@ -117,12 +141,29 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         // 密码加密
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         user.setStatus(1);
+        user.setDeleted(0);  // 设置逻辑删除字段
 
         // 插入用户
         int result = userMapper.insert(user);
         if (result > 0) {
             // 分配指定角色
-            return assignRole(user.getId(), roleCode);
+            boolean roleAssigned = assignRole(user.getId(), roleCode);
+
+            // 如果是教师角色，自动创建教师档案
+            if ("TEACHER".equals(roleCode)) {
+                Teacher teacher = new Teacher();
+                teacher.setUserId(user.getId());
+                teacher.setTeacherNumber("T" + user.getId());  // 生成教师编号
+                teacher.setTitle(user.getTitle());  // 从用户信息中获取职称
+                teacher.setSubject(user.getDepartment());  // 从用户信息中获取部门/科目
+                teacher.setHireDate(LocalDate.now());  // 入职日期为当前日期
+                teacher.setStatus(1);  // 在职状态
+                teacher.setDeleted(0);
+
+                teacherMapper.insert(teacher);
+            }
+
+            return roleAssigned;
         }
         return false;
     }

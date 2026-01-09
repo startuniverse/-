@@ -175,6 +175,29 @@ public class ResourceController {
     }
 
     /**
+     * 5.1.10 查看资源详情（增加浏览次数）
+     */
+    @GetMapping("/detail/{id}")
+    @Operation(summary = "查看资源详情", description = "查看资源详情并增加浏览次数")
+    @PreAuthorize("isAuthenticated()")
+    public ApiResult<EducationalResource> viewResourceDetail(@PathVariable Long id) {
+        EducationalResource resource = resourceMapper.selectById(id);
+        if (resource == null) {
+            return ApiResult.error("资源不存在");
+        }
+
+        if (resource.getStatus() != 1) {
+            return ApiResult.error("资源未发布");
+        }
+
+        // 增加浏览次数
+        resource.setViewCount(resource.getViewCount() + 1);
+        resourceMapper.updateById(resource);
+
+        return ApiResult.success(resource);
+    }
+
+    /**
      * 5.1.6 资源删除
      */
     @DeleteMapping("/delete")
@@ -199,6 +222,125 @@ public class ResourceController {
     }
 
     /**
+     * 5.1.7 管理员添加资源（直接发布）
+     */
+    @PostMapping("/admin/add")
+    @Operation(summary = "管理员添加资源", description = "管理员直接添加并发布教育资源")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResult<Boolean> adminAddResource(@RequestBody EducationalResource resource) {
+        // 设置默认值
+        resource.setStatus(1); // 管理员添加直接发布
+        resource.setUploadTime(LocalDateTime.now());
+        resource.setApprovalTime(LocalDateTime.now());
+        resource.setViewCount(0);
+        resource.setDownloadCount(0);
+
+        // 如果没有提供uploader_id，设置为1（管理员）
+        if (resource.getUploaderId() == null) {
+            resource.setUploaderId(1L);
+        }
+        // 设置审批人为管理员
+        resource.setApproverId(1L);
+
+        // 如果没有提供file_url，设置默认值
+        if (resource.getFileUrl() == null || resource.getFileUrl().trim().isEmpty()) {
+            resource.setFileUrl("/resources/default.pdf");
+        }
+        // 如果没有提供category，设置默认值
+        if (resource.getCategory() == null || resource.getCategory().trim().isEmpty()) {
+            resource.setCategory("other");
+        }
+        // 如果没有提供title，设置默认值
+        if (resource.getTitle() == null || resource.getTitle().trim().isEmpty()) {
+            resource.setTitle("未命名资源");
+        }
+        // 如果没有提供description，设置默认值
+        if (resource.getDescription() == null || resource.getDescription().trim().isEmpty()) {
+            resource.setDescription("暂无描述");
+        }
+        // 如果没有提供subject，设置默认值
+        if (resource.getSubject() == null || resource.getSubject().trim().isEmpty()) {
+            resource.setSubject("通用");
+        }
+
+        try {
+            int result = resourceMapper.insert(resource);
+            return ApiResult.success(result > 0);
+        } catch (Exception e) {
+            System.err.println("管理员添加资源失败: " + e.getMessage());
+            return ApiResult.error("管理员添加资源失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 5.1.8 管理员编辑资源
+     */
+    @PutMapping("/admin/edit")
+    @Operation(summary = "管理员编辑资源", description = "管理员编辑教育资源")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResult<Boolean> adminEditResource(@RequestBody EducationalResource resource) {
+        try {
+            // 验证资源是否存在
+            EducationalResource existing = resourceMapper.selectById(resource.getId());
+            if (existing == null) {
+                return ApiResult.error("资源不存在");
+            }
+
+            // 更新修改时间
+            resource.setUpdatedAt(LocalDateTime.now());
+
+            int result = resourceMapper.updateById(resource);
+            return ApiResult.success(result > 0);
+        } catch (Exception e) {
+            System.err.println("管理员编辑资源失败: " + e.getMessage());
+            return ApiResult.error("管理员编辑资源失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 5.1.9 管理员获取所有资源列表（包含待审核、已拒绝等状态）
+     */
+    @GetMapping("/admin/list")
+    @Operation(summary = "管理员资源列表", description = "管理员查看所有资源列表（包含所有状态）")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ApiResult<PageResult<EducationalResource>> adminListResources(
+            @Parameter(description = "分类") @RequestParam(required = false) String category,
+            @Parameter(description = "科目") @RequestParam(required = false) String subject,
+            @Parameter(description = "状态") @RequestParam(required = false) Integer status,
+            @Parameter(description = "标题关键词") @RequestParam(required = false) String keyword,
+            @Parameter(description = "当前页") @RequestParam(defaultValue = "1") Long current,
+            @Parameter(description = "每页条数") @RequestParam(defaultValue = "10") Long size) {
+
+        Page<EducationalResource> page = new Page<>(current, size);
+        LambdaQueryWrapper<EducationalResource> wrapper = new LambdaQueryWrapper<>();
+
+        // 分类筛选
+        if (category != null && !category.isEmpty()) {
+            wrapper.eq(EducationalResource::getCategory, category);
+        }
+        // 科目筛选
+        if (subject != null && !subject.isEmpty()) {
+            wrapper.eq(EducationalResource::getSubject, subject);
+        }
+        // 状态筛选
+        if (status != null) {
+            wrapper.eq(EducationalResource::getStatus, status);
+        }
+        // 关键词搜索（标题和描述）
+        if (keyword != null && !keyword.isEmpty()) {
+            wrapper.like(EducationalResource::getTitle, keyword)
+                   .or()
+                   .like(EducationalResource::getDescription, keyword);
+        }
+
+        // 按上传时间倒序排列
+        wrapper.orderByDesc(EducationalResource::getUploadTime);
+
+        Page<EducationalResource> result = resourceMapper.selectPage(page, wrapper);
+        return ApiResult.success(PageResult.of(result));
+    }
+
+    /**
      * 5.1.1 资源列表查询
      */
     @GetMapping("/list")
@@ -207,6 +349,7 @@ public class ResourceController {
     public ApiResult<PageResult<EducationalResource>> listResources(
             @Parameter(description = "分类") @RequestParam(required = false) String category,
             @Parameter(description = "科目") @RequestParam(required = false) String subject,
+            @Parameter(description = "关键词") @RequestParam(required = false) String keyword,
             @Parameter(description = "当前页") @RequestParam(defaultValue = "1") Long current,
             @Parameter(description = "每页条数") @RequestParam(defaultValue = "10") Long size) {
 
@@ -214,11 +357,17 @@ public class ResourceController {
         LambdaQueryWrapper<EducationalResource> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(EducationalResource::getStatus, 1); // 只显示已发布的
 
-        if (category != null) {
+        if (category != null && !category.isEmpty()) {
             wrapper.eq(EducationalResource::getCategory, category);
         }
-        if (subject != null) {
+        if (subject != null && !subject.isEmpty()) {
             wrapper.eq(EducationalResource::getSubject, subject);
+        }
+        // 关键词搜索（标题和描述）
+        if (keyword != null && !keyword.isEmpty()) {
+            wrapper.like(EducationalResource::getTitle, keyword)
+                   .or()
+                   .like(EducationalResource::getDescription, keyword);
         }
 
         wrapper.orderByDesc(EducationalResource::getUploadTime);

@@ -46,7 +46,10 @@
         </el-form-item>
 
         <div class="login-footer">
-          <div style="margin-bottom: 10px;">
+          <div style="margin-bottom: 10px; display: flex; justify-content: center; gap: 15px;">
+            <el-link type="primary" @click="$router.push('/')">
+              返回首页
+            </el-link>
             <el-link type="primary" @click="$router.push('/register')">
               没有账户？立即注册
             </el-link>
@@ -599,7 +602,7 @@ const handleLogin = async () => {
         } else if (userStore.hasRole('TEACHER')) {
           router.push('/teacher')
         } else {
-          router.push('/')
+          router.push('/campus')
         }
       } catch (error) {
         ElMessage.error(error.message || '登录失败')

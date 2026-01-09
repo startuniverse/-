@@ -75,6 +75,9 @@ const total = ref(0)
 
 const getExamTypeText = (type) => {
   const map = {
+    '期中': '期中考试',
+    '期末': '期末考试',
+    '日常': '日常测验',
     midterm: '期中考试',
     final: '期末考试',
     daily: '日常测验'
@@ -84,6 +87,9 @@ const getExamTypeText = (type) => {
 
 const getExamTypeTag = (type) => {
   const map = {
+    '期中': 'warning',
+    '期末': 'danger',
+    '日常': 'info',
     midterm: 'warning',
     final: 'danger',
     daily: 'info'
@@ -109,8 +115,9 @@ const loadGrades = async () => {
     if (academicTerm.value) params.academicTerm = academicTerm.value
 
     const data = await getGrades(params)
-    gradesData.value = data.records
-    total.value = data.total
+    // PageResult格式: { current, size, total, pages, records }
+    gradesData.value = data.records || []
+    total.value = data.total || 0
   } catch (error) {
     ElMessage.error('加载成绩失败')
   } finally {

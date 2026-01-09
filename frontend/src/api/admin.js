@@ -110,6 +110,17 @@ export function getResources(params) {
 }
 
 /**
+ * 管理员获取资源列表（包含所有状态）
+ */
+export function getAdminResources(params) {
+  return request({
+    url: '/resource/admin/list',
+    method: 'get',
+    params
+  })
+}
+
+/**
  * 获取资源统计
  */
 export function getResourceStatistics() {
@@ -127,6 +138,39 @@ export function deleteResource(id) {
     url: '/resource/delete',
     method: 'delete',
     params: { id }
+  })
+}
+
+/**
+ * 管理员添加资源
+ */
+export function adminAddResource(data) {
+  return request({
+    url: '/resource/admin/add',
+    method: 'post',
+    data
+  })
+}
+
+/**
+ * 管理员编辑资源
+ */
+export function adminEditResource(data) {
+  return request({
+    url: '/resource/admin/edit',
+    method: 'put',
+    data
+  })
+}
+
+/**
+ * 审核资源
+ */
+export function reviewResource(params) {
+  return request({
+    url: '/resource/review',
+    method: 'post',
+    params
   })
 }
 
@@ -202,5 +246,79 @@ export function deleteAsset(id) {
     url: '/backend/asset/delete',
     method: 'delete',
     params: { id }
+  })
+}
+
+/**
+ * 获取学籍异动列表
+ */
+export function getStatusChanges(params) {
+  return request({
+    url: '/backend/status-change/list',
+    method: 'get',
+    params
+  })
+}
+
+/**
+ * 审核学籍异动
+ */
+export function approveStatusChange(params) {
+  return request({
+    url: '/backend/status-change/approve',
+    method: 'post',
+    params
+  })
+}
+
+/**
+ * 删除学籍异动
+ */
+export function deleteStatusChange(id) {
+  return request({
+    url: '/backend/status-change/delete',
+    method: 'delete',
+    params: { id }
+  })
+}
+
+/**
+ * 获取学籍异动统计
+ */
+export function getStatusChangeStatistics() {
+  return request({
+    url: '/backend/status-change/statistics',
+    method: 'get'
+  })
+}
+
+/**
+ * 获取学生统计信息
+ */
+export function getStudentStatistics() {
+  return request({
+    url: '/backend/student/statistics',
+    method: 'get'
+  })
+}
+
+/**
+ * 获取所有班级申请列表
+ */
+export function getAllApplications(params) {
+  return request({
+    url: '/class-application/admin/all',
+    method: 'get',
+    params
+  })
+}
+
+/**
+ * 获取班级统计信息
+ */
+export function getClassStatistics() {
+  return request({
+    url: '/backend/class/statistics',
+    method: 'get'
   })
 }
