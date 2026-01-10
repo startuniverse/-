@@ -231,7 +231,7 @@ const getScoreTagType = (score) => {
 const loadStudents = async () => {
   try {
     const res = await getTeacherStudents()
-    studentList.value = res.data
+    studentList.value = res
   } catch (error) {
     ElMessage.error('加载学生列表失败')
   }
@@ -254,8 +254,8 @@ const loadGrades = async () => {
     })
 
     const res = await getGradeManagement(params)
-    gradeList.value = res.data.records
-    total.value = res.data.total
+    gradeList.value = res.records
+    total.value = res.total
   } catch (error) {
     ElMessage.error('加载成绩数据失败')
   } finally {

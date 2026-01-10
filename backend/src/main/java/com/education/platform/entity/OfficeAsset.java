@@ -26,6 +26,11 @@ public class OfficeAsset extends BaseEntity {
     private Long schoolId;
 
     /**
+     * 资产编码
+     */
+    private String assetCode;
+
+    /**
      * 资产名称
      */
     private String assetName;

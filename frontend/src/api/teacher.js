@@ -142,3 +142,20 @@ export function getTeacherStudents() {
     method: 'get'
   })
 }
+
+// 获取教师发布的通知列表
+export function getTeacherAnnouncements(params) {
+  return request({
+    url: '/teacher/announcements',
+    method: 'get',
+    params
+  })
+}
+
+// 删除教师通知
+export function deleteTeacherAnnouncement(id) {
+  return request({
+    url: `/teacher/announcements/${id}`,
+    method: 'delete'
+  })
+}

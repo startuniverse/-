@@ -177,30 +177,24 @@
     <el-dialog v-model="historyVisible" title="通知发布记录" width="900px" destroy-on-close>
       <el-table :data="historyAnnouncements" style="width: 100%" v-loading="historyLoading">
         <el-table-column type="index" label="序号" width="60" />
-        <el-table-column prop="title" label="通知标题" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="type" label="类型" width="100">
+        <el-table-column prop="title" label="通知标题" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="type" label="类型" width="120">
           <template #default="scope">
             <el-tag :type="getTypeColor(scope.row.type)">{{ getTypeName(scope.row.type) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="recipients" label="接收对象" width="140">
+        <el-table-column prop="publishTime" label="发布时间" width="160" align="center">
           <template #default="scope">
-            <el-tag v-for="item in scope.row.recipients" :key="item" size="small" style="margin-right: 4px;">
-              {{ getRecipientName(item) }}
+            {{ scope.row.publishTime ? new Date(scope.row.publishTime).toLocaleString('zh-CN') : '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="priority" label="优先级" width="100" align="center">
+          <template #default="scope">
+            <el-tag :type="scope.row.priority === 1 ? 'danger' : 'info'">
+              {{ scope.row.priority === 1 ? '置顶' : '普通' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="publishTime" label="发布方式" width="100">
-          <template #default="scope">
-            <span>{{ scope.row.publishTime === 'immediate' ? '立即' : '定时' }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="scope">
-            <el-tag :type="getStatusType(scope.row.status)">{{ scope.row.status }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="views" label="阅读数" width="80" align="center" />
         <el-table-column label="操作" width="120" fixed="right">
           <template #default="scope">
             <el-button link type="primary" @click="viewAnnouncement(scope.row)">查看</el-button>
@@ -208,6 +202,19 @@
           </template>
         </el-table-column>
       </el-table>
+
+      <!-- 分页 -->
+      <div class="pagination" style="margin-top: 15px;">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :total="total"
+          :page-sizes="[5, 10, 20]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+        />
+      </div>
 
       <template #footer>
         <span class="dialog-footer">
@@ -221,6 +228,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { publishAnnouncement, getTeacherAnnouncements, deleteTeacherAnnouncement } from '@/api/teacher'
 
 const formRef = ref()
 const submitting = ref(false)
@@ -242,6 +250,10 @@ const announcementForm = reactive({
 })
 
 const fileList = ref([])
+const historyAnnouncements = ref([])
+const currentPage = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
 
 const rules = {
   title: [{ required: true, message: '请输入通知标题', trigger: 'blur' }],
@@ -261,37 +273,6 @@ const rules = {
     }
   ]
 }
-
-// 历史通知数据（模拟）
-const historyAnnouncements = ref([
-  {
-    title: '关于期末考试时间安排的通知',
-    type: 'exam',
-    recipients: ['students', 'parents'],
-    publishTime: 'immediate',
-    isTop: true,
-    status: '已发布',
-    views: 156
-  },
-  {
-    title: '寒假放假安排',
-    type: 'holiday',
-    recipients: ['students', 'parents'],
-    publishTime: 'immediate',
-    isTop: true,
-    status: '已发布',
-    views: 234
-  },
-  {
-    title: '春季运动会报名通知',
-    type: 'activity',
-    recipients: ['class1', 'class2'],
-    publishTime: 'schedule',
-    isTop: false,
-    status: '待发布',
-    views: 0
-  }
-])
 
 // 处理文件上传
 const handleFileChange = (file, fileListParam) => {
@@ -363,15 +344,22 @@ const submitAnnouncement = async () => {
     if (valid) {
       submitting.value = true
       try {
-        // 模拟API调用
-        await new Promise(resolve => setTimeout(resolve, 1000))
+        // 准备提交数据
+        const submitData = {
+          title: announcementForm.title,
+          type: announcementForm.type,
+          recipients: announcementForm.recipients,
+          publishTime: announcementForm.publishTime,
+          scheduleTime: announcementForm.scheduleTime,
+          isTop: announcementForm.isTop,
+          sendSMS: announcementForm.sendSMS,
+          content: announcementForm.content,
+          allowComments: announcementForm.allowComments,
+          needReceipt: announcementForm.needReceipt
+        }
 
-        // 添加到历史记录
-        historyAnnouncements.value.unshift({
-          ...announcementForm,
-          status: announcementForm.publishTime === 'immediate' ? '已发布' : '待发布',
-          views: 0
-        })
+        // 调用API
+        const result = await publishAnnouncement(submitData)
 
         const message = announcementForm.publishTime === 'immediate'
           ? '通知发布成功！'
@@ -379,8 +367,11 @@ const submitAnnouncement = async () => {
 
         ElMessage.success(message)
         resetForm()
+
+        // 重新加载历史记录
+        loadHistory()
       } catch (error) {
-        ElMessage.error('发布失败，请重试')
+        ElMessage.error('发布失败: ' + (error.message || '请重试'))
       } finally {
         submitting.value = false
       }
@@ -400,21 +391,44 @@ const saveDraft = () => {
   ElMessage.success('草稿已保存')
 }
 
+// 加载历史记录
+const loadHistory = async () => {
+  historyLoading.value = true
+  try {
+    const params = {
+      current: currentPage.value,
+      size: pageSize.value
+    }
+    const result = await getTeacherAnnouncements(params)
+    historyAnnouncements.value = result.records
+    total.value = result.total
+  } catch (error) {
+    ElMessage.error('加载历史记录失败')
+  } finally {
+    historyLoading.value = false
+  }
+}
+
 // 显示历史记录
 const showHistory = () => {
   historyVisible.value = true
+  loadHistory()
 }
 
 // 查看通知详情
 const viewAnnouncement = (row) => {
+  // 将后端类型转换为前端显示
+  const typeText = getTypeName(row.type)
+  const publishTimeText = row.publishTime ? new Date(row.publishTime).toLocaleString('zh-CN') : '未知'
+
   ElMessageBox.alert(
     `<div style="line-height: 1.8;">
       <strong>标题：</strong>${row.title}<br/>
-      <strong>类型：</strong>${getTypeName(row.type)}<br/>
-      <strong>接收：</strong>${row.recipients.map(r => getRecipientName(r)).join('、')}<br/>
-      <strong>方式：</strong>${row.publishTime === 'immediate' ? '立即发布' : '定时发布'}<br/>
-      <strong>状态：</strong>${row.status}<br/>
-      <strong>阅读数：</strong>${row.views}
+      <strong>类型：</strong>${typeText}<br/>
+      <strong>发布时间：</strong>${publishTimeText}<br/>
+      <strong>优先级：</strong>${row.priority === 1 ? '置顶' : '普通'}<br/>
+      <strong>内容：</strong><br/>
+      <div style="margin-top: 8px; padding: 8px; background: #f5f5f5; border-radius: 4px;">${row.content}</div>
     </div>`,
     '通知详情',
     {
@@ -428,13 +442,27 @@ const viewAnnouncement = (row) => {
 const deleteAnnouncement = (row) => {
   ElMessageBox.confirm(`确定要删除"${row.title}"吗？`, '警告', {
     type: 'warning'
-  }).then(() => {
-    const index = historyAnnouncements.value.indexOf(row)
-    if (index > -1) {
-      historyAnnouncements.value.splice(index, 1)
+  }).then(async () => {
+    try {
+      await deleteTeacherAnnouncement(row.id)
+      ElMessage.success('删除成功')
+      loadHistory()
+    } catch (error) {
+      ElMessage.error('删除失败: ' + (error.message || '请重试'))
     }
-    ElMessage.success('删除成功')
   }).catch(() => {})
+}
+
+// 分页处理
+const handleSizeChange = (val) => {
+  pageSize.value = val
+  currentPage.value = 1
+  loadHistory()
+}
+
+const handleCurrentChange = (val) => {
+  currentPage.value = val
+  loadHistory()
 }
 
 onMounted(() => {

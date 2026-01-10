@@ -24,10 +24,14 @@
         <el-table-column prop="title" label="标题" min-width="200" />
         <el-table-column prop="publisherId" label="发布者" width="120" align="center">
           <template #default="scope">
-            教师{{ scope.row.publisherId }}
+            {{ getPublisherText(scope.row) }}
           </template>
         </el-table-column>
-        <el-table-column prop="publishTime" label="发布时间" width="160" align="center" />
+        <el-table-column prop="publishTime" label="发布时间" width="160" align="center">
+          <template #default="scope">
+            {{ formatPublishTime(scope.row.publishTime) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="priority" label="优先级" width="100" align="center">
           <template #default="scope">
             <el-tag :type="scope.row.priority === 1 ? 'danger' : 'info'">
@@ -65,8 +69,12 @@
     >
       <div class="announcement-detail">
         <div class="detail-meta">
-          <span>发布者: 教师{{ selectedAnnouncement?.publisherId }}</span>
-          <span>发布时间: {{ selectedAnnouncement?.publishTime }}</span>
+          <span>类型: {{ getTypeText(selectedAnnouncement?.type) }}</span>
+          <span>发布者: {{ getPublisherText(selectedAnnouncement) }}</span>
+        </div>
+        <div class="detail-meta">
+          <span>发布时间: {{ formatPublishTime(selectedAnnouncement?.publishTime) }}</span>
+          <span>优先级: {{ selectedAnnouncement?.priority === 1 ? '紧急' : '普通' }}</span>
         </div>
         <div class="detail-content">
           {{ selectedAnnouncement?.content }}
@@ -109,6 +117,24 @@ const getTypeTag = (type) => {
     emergency: 'danger'
   }
   return map[type] || 'info'
+}
+
+const getPublisherText = (row) => {
+  // 如果有publisherName字段，直接显示
+  if (row.publisherName) {
+    return row.publisherName
+  }
+  // 否则显示发布者ID
+  return row.publisherId ? `教师${row.publisherId}` : '未知'
+}
+
+const formatPublishTime = (time) => {
+  if (!time) return '-'
+  try {
+    return new Date(time).toLocaleString('zh-CN')
+  } catch (e) {
+    return time
+  }
 }
 
 const loadAnnouncements = async () => {

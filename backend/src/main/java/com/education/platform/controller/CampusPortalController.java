@@ -707,15 +707,21 @@ public class CampusPortalController {
             wrapper.eq(Announcement::getStatus, 1);
 
             // 查询学校级别和班级级别的公告
-            if (schoolId != null) {
-                wrapper.and(q -> q
+            // 学生可以查看：
+            // 1) schoolId为null的公告（管理员发布的全校通知）
+            // 2) 本学校的所有学校级别公告(classId为null)
+            // 3) 本班级的公告
+            wrapper.and(q -> q
+                .or(q1 -> q1.isNull(Announcement::getSchoolId))  // 管理员发布的全校通知
+                .or(q2 -> q2
                     .eq(Announcement::getSchoolId, schoolId)
-                    .or()
-                    .eq(Announcement::getClassId, classId)
-                    .or()
-                    .isNull(Announcement::getClassId)
-                );
-            }
+                    .and(q3 -> q3
+                        .isNull(Announcement::getClassId)
+                        .or()
+                        .eq(Announcement::getClassId, classId)
+                    )
+                )
+            );
 
             if (type != null) {
                 wrapper.eq(Announcement::getType, type);

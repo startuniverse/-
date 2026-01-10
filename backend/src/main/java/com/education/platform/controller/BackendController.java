@@ -595,6 +595,12 @@ public class BackendController {
             }
             asset.setAssetName(assetName);
 
+            // 生成资产编码：ZC + 学校ID + 时间戳 + 随机数
+            String assetCode = "ZC" + asset.getSchoolId() +
+                System.currentTimeMillis() +
+                (int)(Math.random() * 1000);
+            asset.setAssetCode(assetCode);
+
             String category = (String) assetData.get("category");
             if (category == null || category.trim().isEmpty()) {
                 category = "equipment";

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.education.platform.common.ApiResult;
 import com.education.platform.common.PageResult;
+import com.education.platform.entity.Announcement;
 import com.education.platform.entity.Assignment;
 import com.education.platform.entity.Class;
 import com.education.platform.entity.Grade;
@@ -11,6 +12,7 @@ import com.education.platform.entity.Student;
 import com.education.platform.entity.Teacher;
 import com.education.platform.entity.Timetable;
 import com.education.platform.entity.User;
+import com.education.platform.mapper.AnnouncementMapper;
 import com.education.platform.mapper.AssignmentMapper;
 import com.education.platform.mapper.ClassMapper;
 import com.education.platform.mapper.GradeMapper;
@@ -66,6 +68,9 @@ public class TeacherController {
 
     @Autowired
     private StudentMapper studentMapper;
+
+    @Autowired
+    private AnnouncementMapper announcementMapper;
 
     /**
      * 从token中获取用户ID的辅助方法
@@ -180,6 +185,34 @@ public class TeacherController {
             int result = assignmentMapper.insert(assignment);
 
             if (result > 0) {
+                // 同时创建通知公告，让学生能在通知中心看到
+                try {
+                    // 获取教师负责的班级
+                    LambdaQueryWrapper<Class> classWrapper = new LambdaQueryWrapper<>();
+                    classWrapper.eq(Class::getHeadTeacherId, teacherId);
+                    List<Class> teacherClasses = classMapper.selectList(classWrapper);
+
+                    Announcement announcement = new Announcement();
+                    announcement.setTitle("新作业: " + assignment.getTitle());
+                    announcement.setContent(assignment.getContent());
+                    announcement.setType("notice");
+                    announcement.setPublisherId(teacherId);
+                    announcement.setPublishTime(LocalDateTime.now());
+                    announcement.setStatus(1);
+                    announcement.setSchoolId(teacher.getSchoolId());
+
+                    // 作业通知默认只对本班级可见
+                    if (!teacherClasses.isEmpty()) {
+                        announcement.setClassId(teacherClasses.get(0).getId());
+                    }
+
+                    announcement.setPriority(0);
+                    announcementMapper.insert(announcement);
+                } catch (Exception e) {
+                    // 创建通知失败不影响作业发布
+                    System.err.println("创建作业通知失败: " + e.getMessage());
+                }
+
                 Map<String, Object> responseData = new HashMap<>();
                 responseData.put("id", assignment.getId());
                 responseData.put("title", assignment.getTitle());
@@ -919,6 +952,205 @@ public class TeacherController {
         } catch (Exception e) {
             System.err.println("更新成绩失败: " + e.getMessage());
             return ApiResult.error("更新成绩失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 发布通知公告
+     */
+    @PostMapping("/announcements")
+    @Operation(summary = "发布通知", description = "教师发布通知公告")
+    public ApiResult<Map<String, Object>> publishAnnouncement(
+            @RequestHeader(value = "Authorization", required = false) String token,
+            @RequestBody Map<String, Object> announcementData) {
+        try {
+            // 从token中获取当前教师用户
+            Long teacherUserId = getUserIdFromToken(token);
+            if (teacherUserId == null) {
+                return ApiResult.error("未登录或token无效");
+            }
+
+            // 获取教师记录
+            LambdaQueryWrapper<Teacher> teacherWrapper = new LambdaQueryWrapper<>();
+            teacherWrapper.eq(Teacher::getUserId, teacherUserId);
+            Teacher teacher = teacherMapper.selectOne(teacherWrapper);
+            if (teacher == null) {
+                return ApiResult.error("教师记录不存在，请联系管理员");
+            }
+
+            // 获取教师负责的班级
+            LambdaQueryWrapper<Class> classWrapper = new LambdaQueryWrapper<>();
+            classWrapper.eq(Class::getHeadTeacherId, teacher.getId());
+            List<Class> teacherClasses = classMapper.selectList(classWrapper);
+            if (teacherClasses == null || teacherClasses.isEmpty()) {
+                return ApiResult.error("您还没有负责的班级，请联系管理员");
+            }
+
+            // 获取当前用户信息（用于学校ID）
+            User currentUser = userMapper.selectById(teacherUserId);
+            if (currentUser == null) {
+                return ApiResult.error("用户信息不存在");
+            }
+
+            // 创建公告对象
+            Announcement announcement = new Announcement();
+
+            // 设置标题
+            Object titleObj = announcementData.get("title");
+            if (titleObj == null || titleObj.toString().trim().isEmpty()) {
+                return ApiResult.error("通知标题不能为空");
+            }
+            announcement.setTitle(titleObj.toString());
+
+            // 设置内容
+            Object contentObj = announcementData.get("content");
+            if (contentObj == null || contentObj.toString().trim().isEmpty()) {
+                return ApiResult.error("通知内容不能为空");
+            }
+            announcement.setContent(contentObj.toString());
+
+            // 设置类型（转换前端类型到后端类型）
+            Object typeObj = announcementData.get("type");
+            String type = "notice"; // 默认为通知
+            if (typeObj != null) {
+                String frontendType = typeObj.toString();
+                // 映射前端类型到后端类型
+                if ("important".equals(frontendType)) {
+                    type = "emergency"; // 重要通知映射为紧急
+                } else if ("daily".equals(frontendType) || "activity".equals(frontendType) ||
+                           "exam".equals(frontendType) || "holiday".equals(frontendType)) {
+                    type = "notice"; // 其他类型映射为普通通知
+                } else {
+                    type = "notice";
+                }
+            }
+            announcement.setType(type);
+
+            // 设置发布者
+            announcement.setPublisherId(teacherUserId);
+
+            // 设置发布时间
+            Object publishTimeObj = announcementData.get("publishTime");
+            if ("schedule".equals(publishTimeObj)) {
+                // 定时发布
+                Object scheduleTimeObj = announcementData.get("scheduleTime");
+                if (scheduleTimeObj != null) {
+                    try {
+                        announcement.setPublishTime(LocalDateTime.parse(scheduleTimeObj.toString().replace(" ", "T")));
+                    } catch (Exception e) {
+                        announcement.setPublishTime(LocalDateTime.now());
+                    }
+                } else {
+                    announcement.setPublishTime(LocalDateTime.now());
+                }
+            } else {
+                // 立即发布
+                announcement.setPublishTime(LocalDateTime.now());
+            }
+
+            // 设置学校ID
+            announcement.setSchoolId(currentUser.getSchoolId());
+
+            // 设置班级ID（教师通知只对本班级可见）
+            // 教师发布的通知默认只对本班级可见
+            if (!teacherClasses.isEmpty()) {
+                announcement.setClassId(teacherClasses.get(0).getId());
+            } else {
+                // 如果没有班级，设置为null（但这种情况应该已经被前面的检查拦截）
+                announcement.setClassId(null);
+            }
+
+            // 设置优先级（置顶设置）
+            Object isTopObj = announcementData.get("isTop");
+            announcement.setPriority(isTopObj != null && Boolean.parseBoolean(isTopObj.toString()) ? 1 : 0);
+
+            // 设置状态为已发布
+            announcement.setStatus(1);
+
+            // 保存到数据库
+            int result = announcementMapper.insert(announcement);
+
+            if (result > 0) {
+                Map<String, Object> responseData = new HashMap<>();
+                responseData.put("id", announcement.getId());
+                responseData.put("title", announcement.getTitle());
+                responseData.put("publishTime", announcement.getPublishTime());
+                responseData.put("type", announcement.getType());
+
+                return ApiResult.success("通知发布成功", responseData);
+            } else {
+                return ApiResult.error("通知发布失败");
+            }
+        } catch (Exception e) {
+            System.err.println("发布通知失败: " + e.getMessage());
+            e.printStackTrace();
+            return ApiResult.error("发布通知失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取教师发布的通知列表
+     */
+    @GetMapping("/announcements")
+    @Operation(summary = "获取教师通知列表", description = "获取教师发布的通知公告列表")
+    public ApiResult<PageResult<Announcement>> getTeacherAnnouncements(
+            @RequestHeader(value = "Authorization", required = false) String token,
+            @Parameter(description = "当前页") @RequestParam(defaultValue = "1") Long current,
+            @Parameter(description = "每页条数") @RequestParam(defaultValue = "10") Long size) {
+        try {
+            // 从token中获取当前教师用户
+            Long teacherUserId = getUserIdFromToken(token);
+            if (teacherUserId == null) {
+                return ApiResult.error("未登录或token无效");
+            }
+
+            Page<Announcement> page = new Page<>(current, size);
+            LambdaQueryWrapper<Announcement> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(Announcement::getPublisherId, teacherUserId);
+            wrapper.eq(Announcement::getDeleted, 0);
+            wrapper.orderByDesc(Announcement::getPublishTime);
+
+            Page<Announcement> result = announcementMapper.selectPage(page, wrapper);
+            return ApiResult.success(PageResult.of(result));
+        } catch (Exception e) {
+            System.err.println("获取通知列表失败: " + e.getMessage());
+            return ApiResult.error("获取通知列表失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 删除通知
+     */
+    @DeleteMapping("/announcements/{id}")
+    @Operation(summary = "删除通知", description = "删除指定的通知")
+    public ApiResult<Boolean> deleteAnnouncement(
+            @RequestHeader(value = "Authorization", required = false) String token,
+            @Parameter(description = "通知ID") @PathVariable Long id) {
+        try {
+            // 从token中获取当前教师用户
+            Long teacherUserId = getUserIdFromToken(token);
+            if (teacherUserId == null) {
+                return ApiResult.error("未登录或token无效");
+            }
+
+            // 验证通知是否存在且属于当前教师
+            Announcement announcement = announcementMapper.selectById(id);
+            if (announcement == null) {
+                return ApiResult.error("通知不存在");
+            }
+
+            if (!announcement.getPublisherId().equals(teacherUserId)) {
+                return ApiResult.error("无权删除该通知");
+            }
+
+            // 逻辑删除
+            announcement.setDeleted(1);
+            int result = announcementMapper.updateById(announcement);
+
+            return ApiResult.success(result > 0);
+        } catch (Exception e) {
+            System.err.println("删除通知失败: " + e.getMessage());
+            return ApiResult.error("删除通知失败: " + e.getMessage());
         }
     }
 }
