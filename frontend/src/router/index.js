@@ -152,7 +152,7 @@ const routes = [
       {
         path: 'class-management',
         name: 'ClassManagement',
-        component: () => import('@/views/teacher/MyStudents.vue'),
+        component: () => import('@/views/teacher/ClassManagement.vue'),
         meta: { title: '班级管理' }
       }
     ]

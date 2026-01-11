@@ -159,3 +159,37 @@ export function deleteTeacherAnnouncement(id) {
     method: 'delete'
   })
 }
+
+// 获取可选班级列表（供教师选择）
+export function getAvailableClasses() {
+  return request({
+    url: '/teacher/available-classes',
+    method: 'get'
+  })
+}
+
+// 教师选择/分配班级
+export function selectClass(classId) {
+  return request({
+    url: '/teacher/select-class',
+    method: 'post',
+    params: { classId }
+  })
+}
+
+// 教师取消选择班级
+export function unselectClass(classId) {
+  return request({
+    url: '/teacher/unselect-class',
+    method: 'post',
+    params: { classId }
+  })
+}
+
+// 获取教师已选择的班级列表
+export function getMyClasses() {
+  return request({
+    url: '/teacher/my-classes',
+    method: 'get'
+  })
+}

@@ -43,7 +43,19 @@
         <el-button type="info" @click="resetFilter">重置</el-button>
       </div>
 
-      <el-table :data="gradeList" style="width: 100%; margin-top: 15px;" v-loading="loading" stripe>
+      <!-- 空状态提示 -->
+      <div v-if="studentList.length === 0" class="empty-state">
+        <el-empty description="您还没有负责的班级或班级中没有学生">
+          <div>
+            <p style="margin-bottom: 10px;">请先在班级管理中选择负责的班级</p>
+            <el-button type="primary" @click="$router.push('/teacher/class-management')">
+              去选择班级
+            </el-button>
+          </div>
+        </el-empty>
+      </div>
+
+      <el-table v-else :data="gradeList" style="width: 100%; margin-top: 15px;" v-loading="loading" stripe>
         <el-table-column type="index" label="序号" width="60" align="center" />
         <el-table-column prop="studentName" label="学生姓名" width="120" />
         <el-table-column prop="studentNumber" label="学号" width="120" />
@@ -233,7 +245,13 @@ const loadStudents = async () => {
     const res = await getTeacherStudents()
     studentList.value = res
   } catch (error) {
-    ElMessage.error('加载学生列表失败')
+    // 如果是因为没有班级，给出更友好的提示
+    if (error.message && error.message.includes('班级')) {
+      ElMessage.warning('您还没有负责的班级，请先在班级管理中选择班级')
+    } else {
+      ElMessage.error('加载学生列表失败')
+    }
+    studentList.value = []
   }
 }
 
@@ -423,7 +441,10 @@ onMounted(() => {
   loadStudents().then(() => {
     // 设置默认考试日期
     addForm.value.examDate = new Date().toISOString().split('T')[0]
-    loadGrades()
+    // 只有当有学生时才加载成绩，避免无意义的错误
+    if (studentList.value.length > 0) {
+      loadGrades()
+    }
   })
 })
 </script>
@@ -451,5 +472,10 @@ onMounted(() => {
   margin-top: 20px;
   display: flex;
   justify-content: center;
+}
+
+.empty-state {
+  margin: 40px 0;
+  text-align: center;
 }
 </style>

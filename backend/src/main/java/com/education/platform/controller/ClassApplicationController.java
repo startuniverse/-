@@ -137,6 +137,18 @@ public class ClassApplicationController {
      */
     @GetMapping("/teacher/pending/{teacherId}")
     public ApiResult<List<ClassApplication>> getPendingApplications(@PathVariable Long teacherId) {
+        // 尝试作为teacherId查询，如果不存在则尝试作为userId查询对应的teacher
+        Teacher teacher = teacherMapper.selectById(teacherId);
+        if (teacher == null) {
+            LambdaQueryWrapper<Teacher> teacherWrapper = new LambdaQueryWrapper<>();
+            teacherWrapper.eq(Teacher::getUserId, teacherId);
+            teacher = teacherMapper.selectOne(teacherWrapper);
+
+            if (teacher != null) {
+                teacherId = teacher.getId();
+            }
+        }
+
         List<ClassApplication> applications = classApplicationService.getPendingApplications(teacherId);
         return ApiResult.success(applications);
     }
@@ -146,6 +158,18 @@ public class ClassApplicationController {
      */
     @GetMapping("/teacher/{teacherId}")
     public ApiResult<List<ClassApplication>> getTeacherApplications(@PathVariable Long teacherId) {
+        // 尝试作为teacherId查询，如果不存在则尝试作为userId查询对应的teacher
+        Teacher teacher = teacherMapper.selectById(teacherId);
+        if (teacher == null) {
+            LambdaQueryWrapper<Teacher> teacherWrapper = new LambdaQueryWrapper<>();
+            teacherWrapper.eq(Teacher::getUserId, teacherId);
+            teacher = teacherMapper.selectOne(teacherWrapper);
+
+            if (teacher != null) {
+                teacherId = teacher.getId();
+            }
+        }
+
         List<ClassApplication> applications = classApplicationService.getTeacherApplications(teacherId);
         return ApiResult.success(applications);
     }
@@ -160,9 +184,21 @@ public class ClassApplicationController {
 
         Integer status = (Integer) params.get("status");
         String approvalComment = (String) params.get("approvalComment");
-        Long teacherId = ((Number) params.get("teacherId")).longValue();
+        Long teacherIdOrUserId = ((Number) params.get("teacherId")).longValue();
 
-        boolean success = classApplicationService.reviewApplication(applicationId, status, approvalComment, teacherId);
+        // 尝试作为teacherId，如果不存在则尝试作为userId
+        Teacher teacher = teacherMapper.selectById(teacherIdOrUserId);
+        if (teacher == null) {
+            LambdaQueryWrapper<Teacher> teacherWrapper = new LambdaQueryWrapper<>();
+            teacherWrapper.eq(Teacher::getUserId, teacherIdOrUserId);
+            teacher = teacherMapper.selectOne(teacherWrapper);
+
+            if (teacher != null) {
+                teacherIdOrUserId = teacher.getId();
+            }
+        }
+
+        boolean success = classApplicationService.reviewApplication(applicationId, status, approvalComment, teacherIdOrUserId);
         if (success) {
             return ApiResult.success("审核成功");
         }
@@ -296,42 +332,43 @@ public class ClassApplicationController {
 
         // 先通过老师ID获取老师信息，如果不存在则尝试通过user_id查询
         Teacher teacher = teacherMapper.selectById(teacherId);
+        Long actualTeacherId = teacherId;
         if (teacher == null) {
             // 尝试通过user_id查询teacher记录
             LambdaQueryWrapper<Teacher> teacherWrapper = new LambdaQueryWrapper<>();
             teacherWrapper.eq(Teacher::getUserId, teacherId);
             teacher = teacherMapper.selectOne(teacherWrapper);
 
-            if (teacher == null) {
-                // 如果还是不存在，说明可能是teacherId传的是user_id，但teacher表记录不存在
-                // 这种情况下，我们仍然允许查询，因为数据可能不一致
-                log.warn("Teacher record not found for teacherId: {}, but proceeding with query", teacherId);
+            if (teacher != null) {
+                actualTeacherId = teacher.getId();
             }
         }
 
-        // 这里简化处理：通过班级申请表中已通过的记录来获取学生
-        // 实际项目中，学生表应该有classId字段，可以直接查询
-        LambdaQueryWrapper<ClassApplication> appWrapper = new LambdaQueryWrapper<>();
-        appWrapper.eq(ClassApplication::getTeacherId, teacherId);
-        appWrapper.eq(ClassApplication::getStatus, 1); // 已通过的申请
-        List<ClassApplication> approvedApps = classApplicationMapper.selectList(appWrapper);
+        if (teacher == null) {
+            return ApiResult.error("教师不存在");
+        }
 
-        // 获取学生ID列表
-        List<Long> studentIds = approvedApps.stream()
-                .map(ClassApplication::getStudentId)
-                .distinct()
-                .toList();
+        // 获取教师负责的班级
+        LambdaQueryWrapper<com.education.platform.entity.Class> classWrapper = new LambdaQueryWrapper<>();
+        classWrapper.eq(com.education.platform.entity.Class::getHeadTeacherId, actualTeacherId);
+        List<com.education.platform.entity.Class> classes = classMapper.selectList(classWrapper);
 
-        if (studentIds.isEmpty()) {
+        if (classes.isEmpty()) {
             Page<Map<String, Object>> emptyPage = new Page<>(current, size);
             emptyPage.setRecords(new java.util.ArrayList<>());
             return ApiResult.success(PageResult.of(emptyPage));
         }
 
-        // 分页查询学生
+        // 获取班级ID列表
+        List<Long> classIds = classes.stream()
+                .map(com.education.platform.entity.Class::getId)
+                .toList();
+
+        // 构建学生查询条件 - 优先从学生表直接查询
         Page<Student> page = new Page<>(current, size);
         LambdaQueryWrapper<Student> wrapper = new LambdaQueryWrapper<>();
-        wrapper.in(Student::getId, studentIds);
+        wrapper.in(Student::getClassId, classIds);
+        wrapper.eq(Student::getDeleted, 0);
 
         // 关键词搜索
         if (keyword != null && !keyword.trim().isEmpty()) {
@@ -343,6 +380,9 @@ public class ClassApplicationController {
 
             if (!userIds.isEmpty()) {
                 wrapper.in(Student::getUserId, userIds);
+            } else {
+                // 如果没有匹配的用户，返回空结果
+                wrapper.eq(Student::getId, -1L); // 永远不会匹配
             }
         }
 

@@ -1,5 +1,28 @@
 <template>
   <div class="teacher-dashboard">
+    <!-- 班级未选择提醒 -->
+    <el-row :gutter="20" v-if="showClassReminder">
+      <el-col :span="24">
+        <el-alert
+          title="⚠️ 您还没有选择负责的班级，请先选择班级才能使用完整功能"
+          type="warning"
+          :closable="false"
+          show-icon
+        >
+          <template #default>
+            <div style="margin-top: 8px;">
+              <el-button type="warning" size="small" @click="$router.push('/teacher/class-management')">
+                去选择班级
+              </el-button>
+              <span style="margin-left: 10px; color: #606266; font-size: 12px;">
+                选择班级后，您可以管理学生、布置作业、录入成绩等
+              </span>
+            </div>
+          </template>
+        </el-alert>
+      </el-col>
+    </el-row>
+
     <!-- 欢迎卡片 -->
     <el-row :gutter="20">
       <el-col :span="24">
@@ -15,13 +38,30 @@
               </div>
             </div>
             <div class="quick-actions">
-              <el-button type="primary" icon="Plus" @click="$router.push('/teacher/assignment')">
+              <el-button
+                type="primary"
+                icon="Plus"
+                @click="$router.push('/teacher/assignment')"
+                :disabled="showClassReminder"
+                :title="showClassReminder ? '请先选择班级' : '布置作业'"
+              >
                 布置作业
               </el-button>
-              <el-button type="success" icon="Edit" @click="$router.push('/teacher/grade-management')">
+              <el-button
+                type="success"
+                icon="Edit"
+                @click="$router.push('/teacher/grade-management')"
+                :disabled="showClassReminder"
+                :title="showClassReminder ? '请先选择班级' : '录入成绩'"
+              >
                 录入成绩
               </el-button>
-              <el-button icon="Bell" @click="$router.push('/teacher/announcements')">
+              <el-button
+                icon="Bell"
+                @click="$router.push('/teacher/announcements')"
+                :disabled="showClassReminder"
+                :title="showClassReminder ? '请先选择班级' : '发布通知'"
+              >
                 发布通知
               </el-button>
             </div>
@@ -175,7 +215,7 @@
     </el-row>
 
     <!-- 最近活动 -->
-    <el-row :gutter="20">
+    <el-row :gutter="20" v-if="!showClassReminder">
       <el-col :span="24">
         <el-card class="activity-card">
           <template #header>
@@ -203,8 +243,11 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useUserStore } from '@/store/modules/user'
+import { useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import dayjs from 'dayjs'
 import request from '@/utils/request'
+import { getMyClasses } from '@/api/teacher'
 import {
   User,
   Document,
@@ -214,10 +257,12 @@ import {
   School
 } from '@element-plus/icons-vue'
 
+const router = useRouter()
 const userStore = useUserStore()
 const userInfo = computed(() => userStore.userInfo)
 
 const currentDate = ref(dayjs().format('YYYY年MM月DD日'))
+const showClassReminder = ref(false)
 
 const stats = ref({
   studentCount: 0,
@@ -228,8 +273,52 @@ const stats = ref({
 
 const recentActivities = ref([])
 
+// 检查教师是否有班级
+const checkTeacherClasses = async () => {
+  try {
+    const classes = await getMyClasses()
+    if (classes.length === 0) {
+      showClassReminder.value = true
+      // 只显示一次欢迎提示
+      const hasSeenWelcome = localStorage.getItem('hasSeenClassWelcome')
+      if (!hasSeenWelcome) {
+        setTimeout(() => {
+          ElMessageBox.confirm(
+            '欢迎来到教学平台！您还没有选择负责的班级，是否现在去选择？',
+            '👋 欢迎加入',
+            {
+              confirmButtonText: '去选择班级',
+              cancelButtonText: '稍后再说',
+              type: 'info'
+            }
+          ).then(() => {
+            localStorage.setItem('hasSeenClassWelcome', 'true')
+            router.push('/teacher/class-management')
+          }).catch(() => {
+            localStorage.setItem('hasSeenClassWelcome', 'true')
+          })
+        }, 500)
+      }
+    }
+  } catch (error) {
+    console.error('检查班级失败:', error)
+  }
+}
+
 // 从后端加载数据
 const loadDashboardData = async () => {
+  // 如果没有班级，不加载统计数据
+  if (showClassReminder.value) {
+    stats.value = {
+      studentCount: 0,
+      activeAssignments: 0,
+      pendingGrades: 0,
+      todayClasses: 0
+    }
+    recentActivities.value = []
+    return
+  }
+
   try {
     // 拦截器已经返回了data部分，所以直接使用
     const data = await request({
@@ -240,8 +329,8 @@ const loadDashboardData = async () => {
     stats.value = {
       studentCount: data.studentCount || 0,
       activeAssignments: data.activeAssignments || 0,
-      pendingGrades: data.pendingGrades || 5, // 模拟数据
-      todayClasses: data.todayClasses || 2 // 模拟数据
+      pendingGrades: data.pendingGrades || 0,
+      todayClasses: data.todayClasses || 0
     }
 
     // 生成最近活动
@@ -269,17 +358,21 @@ const loadDashboardData = async () => {
     console.error('加载仪表盘数据失败:', error)
     // 使用默认数据
     stats.value = {
-      studentCount: 45,
-      activeAssignments: 3,
-      pendingGrades: 5,
-      todayClasses: 2
+      studentCount: 0,
+      activeAssignments: 0,
+      pendingGrades: 0,
+      todayClasses: 0
     }
+    recentActivities.value = []
   }
 }
 
 // 加载数据
-onMounted(() => {
-  loadDashboardData()
+onMounted(async () => {
+  // 先检查班级状态
+  await checkTeacherClasses()
+  // 再根据班级状态加载数据
+  await loadDashboardData()
 })
 
 const viewAllActivities = () => {

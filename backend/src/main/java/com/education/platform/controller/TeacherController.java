@@ -102,15 +102,23 @@ public class TeacherController {
             @RequestBody Map<String, Object> assignmentData) {
         try {
             // 从token中获取当前用户
-            Long teacherId = getUserIdFromToken(token);
-            if (teacherId == null) {
+            Long teacherUserId = getUserIdFromToken(token);
+            if (teacherUserId == null) {
                 return ApiResult.error("未登录或token无效");
             }
 
-            // 获取用户信息（用于获取学校ID）
-            User teacher = userMapper.selectById(teacherId);
+            // 获取教师记录（用于获取实际教师ID）
+            LambdaQueryWrapper<Teacher> teacherWrapper = new LambdaQueryWrapper<>();
+            teacherWrapper.eq(Teacher::getUserId, teacherUserId);
+            Teacher teacher = teacherMapper.selectOne(teacherWrapper);
             if (teacher == null) {
-                return ApiResult.error("教师用户不存在");
+                return ApiResult.error("教师记录不存在，请联系管理员");
+            }
+
+            // 获取用户信息（用于获取学校ID）
+            User user = userMapper.selectById(teacherUserId);
+            if (user == null) {
+                return ApiResult.error("用户信息不存在");
             }
 
             // 创建作业对象
@@ -174,8 +182,8 @@ public class TeacherController {
             }
 
             // 设置教师ID和学校ID
-            assignment.setTeacherId(teacherId);
-            assignment.setSchoolId(teacher.getSchoolId());
+            assignment.setTeacherId(teacher.getId());
+            assignment.setSchoolId(user.getSchoolId());
 
             // 设置状态和发布时间
             assignment.setStatus("进行中");
@@ -187,23 +195,40 @@ public class TeacherController {
             if (result > 0) {
                 // 同时创建通知公告，让学生能在通知中心看到
                 try {
-                    // 获取教师负责的班级
-                    LambdaQueryWrapper<Class> classWrapper = new LambdaQueryWrapper<>();
-                    classWrapper.eq(Class::getHeadTeacherId, teacherId);
-                    List<Class> teacherClasses = classMapper.selectList(classWrapper);
-
                     Announcement announcement = new Announcement();
                     announcement.setTitle("新作业: " + assignment.getTitle());
                     announcement.setContent(assignment.getContent());
                     announcement.setType("notice");
-                    announcement.setPublisherId(teacherId);
+                    announcement.setPublisherId(teacherUserId);
                     announcement.setPublishTime(LocalDateTime.now());
                     announcement.setStatus(1);
-                    announcement.setSchoolId(teacher.getSchoolId());
+                    announcement.setSchoolId(user.getSchoolId());
 
-                    // 作业通知默认只对本班级可见
-                    if (!teacherClasses.isEmpty()) {
-                        announcement.setClassId(teacherClasses.get(0).getId());
+                    // 作业通知的班级ID处理：优先使用targetClasses中的第一个班级
+                    if (targetClassesObj != null && targetClassesObj instanceof List) {
+                        List<?> classes = (List<?>) targetClassesObj;
+                        if (!classes.isEmpty()) {
+                            try {
+                                Long classId = Long.valueOf(classes.get(0).toString());
+                                announcement.setClassId(classId);
+                            } catch (Exception e) {
+                                // 如果转换失败，尝试获取教师的第一个班级
+                                LambdaQueryWrapper<Class> classWrapper = new LambdaQueryWrapper<>();
+                                classWrapper.eq(Class::getHeadTeacherId, teacher.getId());
+                                List<Class> teacherClasses = classMapper.selectList(classWrapper);
+                                if (!teacherClasses.isEmpty()) {
+                                    announcement.setClassId(teacherClasses.get(0).getId());
+                                }
+                            }
+                        }
+                    } else {
+                        // 没有指定目标班级，使用教师的第一个班级
+                        LambdaQueryWrapper<Class> classWrapper = new LambdaQueryWrapper<>();
+                        classWrapper.eq(Class::getHeadTeacherId, teacher.getId());
+                        List<Class> teacherClasses = classMapper.selectList(classWrapper);
+                        if (!teacherClasses.isEmpty()) {
+                            announcement.setClassId(teacherClasses.get(0).getId());
+                        }
                     }
 
                     announcement.setPriority(0);
@@ -978,14 +1003,6 @@ public class TeacherController {
                 return ApiResult.error("教师记录不存在，请联系管理员");
             }
 
-            // 获取教师负责的班级
-            LambdaQueryWrapper<Class> classWrapper = new LambdaQueryWrapper<>();
-            classWrapper.eq(Class::getHeadTeacherId, teacher.getId());
-            List<Class> teacherClasses = classMapper.selectList(classWrapper);
-            if (teacherClasses == null || teacherClasses.isEmpty()) {
-                return ApiResult.error("您还没有负责的班级，请联系管理员");
-            }
-
             // 获取当前用户信息（用于学校ID）
             User currentUser = userMapper.selectById(teacherUserId);
             if (currentUser == null) {
@@ -1052,12 +1069,32 @@ public class TeacherController {
             announcement.setSchoolId(currentUser.getSchoolId());
 
             // 设置班级ID（教师通知只对本班级可见）
-            // 教师发布的通知默认只对本班级可见
-            if (!teacherClasses.isEmpty()) {
-                announcement.setClassId(teacherClasses.get(0).getId());
+            // 优先使用前端指定的classId，如果没有则使用教师负责的第一个班级
+            Object targetClassIdObj = announcementData.get("classId");
+            if (targetClassIdObj != null) {
+                try {
+                    Long targetClassId = Long.valueOf(targetClassIdObj.toString());
+                    announcement.setClassId(targetClassId);
+                } catch (Exception e) {
+                    // 如果转换失败，尝试获取教师的第一个班级
+                    LambdaQueryWrapper<Class> classWrapper = new LambdaQueryWrapper<>();
+                    classWrapper.eq(Class::getHeadTeacherId, teacher.getId());
+                    List<Class> teacherClasses = classMapper.selectList(classWrapper);
+                    if (!teacherClasses.isEmpty()) {
+                        announcement.setClassId(teacherClasses.get(0).getId());
+                    }
+                }
             } else {
-                // 如果没有班级，设置为null（但这种情况应该已经被前面的检查拦截）
-                announcement.setClassId(null);
+                // 没有指定班级，使用教师的第一个班级
+                LambdaQueryWrapper<Class> classWrapper = new LambdaQueryWrapper<>();
+                classWrapper.eq(Class::getHeadTeacherId, teacher.getId());
+                List<Class> teacherClasses = classMapper.selectList(classWrapper);
+                if (!teacherClasses.isEmpty()) {
+                    announcement.setClassId(teacherClasses.get(0).getId());
+                } else {
+                    // 如果没有班级，设置为null（学校级别通知）
+                    announcement.setClassId(null);
+                }
             }
 
             // 设置优先级（置顶设置）
@@ -1151,6 +1188,244 @@ public class TeacherController {
         } catch (Exception e) {
             System.err.println("删除通知失败: " + e.getMessage());
             return ApiResult.error("删除通知失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取所有可选班级列表（供教师选择）
+     */
+    @GetMapping("/available-classes")
+    @Operation(summary = "获取可选班级列表", description = "获取所有未分配班主任的班级列表")
+    public ApiResult<List<Map<String, Object>>> getAvailableClasses(
+            @RequestHeader(value = "Authorization", required = false) String token) {
+        try {
+            // 从token中获取当前教师用户
+            Long teacherUserId = getUserIdFromToken(token);
+            if (teacherUserId == null) {
+                return ApiResult.error("未登录或token无效");
+            }
+
+            // 获取教师记录
+            LambdaQueryWrapper<Teacher> teacherWrapper = new LambdaQueryWrapper<>();
+            teacherWrapper.eq(Teacher::getUserId, teacherUserId);
+            Teacher teacher = teacherMapper.selectOne(teacherWrapper);
+            if (teacher == null) {
+                return ApiResult.error("教师记录不存在，请联系管理员");
+            }
+
+            // 查询所有未分配班主任或已分配给当前教师的班级
+            LambdaQueryWrapper<Class> classWrapper = new LambdaQueryWrapper<>();
+            classWrapper.eq(Class::getDeleted, 0);
+            classWrapper.eq(Class::getStatus, 1); // 正常状态
+            classWrapper.and(wrapper ->
+                wrapper.isNull(Class::getHeadTeacherId)
+                    .or().eq(Class::getHeadTeacherId, teacher.getId())
+            );
+
+            List<Class> classes = classMapper.selectList(classWrapper);
+
+            // 构建返回数据
+            List<Map<String, Object>> result = new ArrayList<>();
+            for (Class cls : classes) {
+                Map<String, Object> item = new HashMap<>();
+                item.put("id", cls.getId());
+                item.put("className", cls.getClassName());
+                item.put("grade", cls.getGrade());
+                item.put("academicYear", cls.getAcademicYear());
+                item.put("studentCount", cls.getStudentCount());
+
+                // 检查是否已分配给当前教师
+                boolean isSelected = cls.getHeadTeacherId() != null && cls.getHeadTeacherId().equals(teacher.getId());
+                item.put("isSelected", isSelected);
+
+                // 获取班主任姓名（如果有）
+                if (cls.getHeadTeacherId() != null) {
+                    Teacher headTeacher = teacherMapper.selectById(cls.getHeadTeacherId());
+                    if (headTeacher != null) {
+                        User headTeacherUser = userMapper.selectById(headTeacher.getUserId());
+                        if (headTeacherUser != null) {
+                            item.put("headTeacherName", headTeacherUser.getRealName());
+                        }
+                    }
+                }
+
+                result.add(item);
+            }
+
+            return ApiResult.success(result);
+        } catch (Exception e) {
+            System.err.println("获取可选班级列表失败: " + e.getMessage());
+            return ApiResult.error("获取可选班级列表失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 教师选择/分配班级
+     */
+    @PostMapping("/select-class")
+    @Operation(summary = "教师选择班级", description = "教师选择负责的班级")
+    public ApiResult<String> selectClass(
+            @RequestHeader(value = "Authorization", required = false) String token,
+            @Parameter(description = "班级ID") @RequestParam Long classId) {
+        try {
+            // 从token中获取当前教师用户
+            Long teacherUserId = getUserIdFromToken(token);
+            if (teacherUserId == null) {
+                return ApiResult.error("未登录或token无效");
+            }
+
+            // 获取教师记录
+            LambdaQueryWrapper<Teacher> teacherWrapper = new LambdaQueryWrapper<>();
+            teacherWrapper.eq(Teacher::getUserId, teacherUserId);
+            Teacher teacher = teacherMapper.selectOne(teacherWrapper);
+            if (teacher == null) {
+                return ApiResult.error("教师记录不存在，请联系管理员");
+            }
+
+            // 验证班级是否存在
+            Class classInfo = classMapper.selectById(classId);
+            if (classInfo == null) {
+                return ApiResult.error("班级不存在");
+            }
+
+            if (classInfo.getDeleted() != null && classInfo.getDeleted() == 1) {
+                return ApiResult.error("班级已删除");
+            }
+
+            if (classInfo.getStatus() != null && classInfo.getStatus() != 1) {
+                return ApiResult.error("班级状态异常");
+            }
+
+            // 检查班级是否已被其他教师占用
+            if (classInfo.getHeadTeacherId() != null && !classInfo.getHeadTeacherId().equals(teacher.getId())) {
+                Teacher existingTeacher = teacherMapper.selectById(classInfo.getHeadTeacherId());
+                if (existingTeacher != null) {
+                    User existingUser = userMapper.selectById(existingTeacher.getUserId());
+                    if (existingUser != null) {
+                        return ApiResult.error("该班级已被其他教师(" + existingUser.getRealName() + ")负责");
+                    }
+                }
+            }
+
+            // 更新班级的班主任
+            classInfo.setHeadTeacherId(teacher.getId());
+            int result = classMapper.updateById(classInfo);
+
+            if (result > 0) {
+                return ApiResult.success("成功选择班级", "成功选择班级");
+            } else {
+                return ApiResult.error("选择班级失败");
+            }
+        } catch (Exception e) {
+            System.err.println("选择班级失败: " + e.getMessage());
+            return ApiResult.error("选择班级失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 教师取消选择班级
+     */
+    @PostMapping("/unselect-class")
+    @Operation(summary = "教师取消选择班级", description = "教师取消负责的班级")
+    public ApiResult<String> unselectClass(
+            @RequestHeader(value = "Authorization", required = false) String token,
+            @Parameter(description = "班级ID") @RequestParam Long classId) {
+        try {
+            // 从token中获取当前教师用户
+            Long teacherUserId = getUserIdFromToken(token);
+            if (teacherUserId == null) {
+                return ApiResult.error("未登录或token无效");
+            }
+
+            // 获取教师记录
+            LambdaQueryWrapper<Teacher> teacherWrapper = new LambdaQueryWrapper<>();
+            teacherWrapper.eq(Teacher::getUserId, teacherUserId);
+            Teacher teacher = teacherMapper.selectOne(teacherWrapper);
+            if (teacher == null) {
+                return ApiResult.error("教师记录不存在，请联系管理员");
+            }
+
+            // 验证班级是否存在
+            Class classInfo = classMapper.selectById(classId);
+            if (classInfo == null) {
+                return ApiResult.error("班级不存在");
+            }
+
+            // 验证该班级是否属于当前教师
+            if (!teacher.getId().equals(classInfo.getHeadTeacherId())) {
+                return ApiResult.error("您不是该班级的班主任，无法取消");
+            }
+
+            // 取消班主任 - 允许取消，即使班级有学生
+            // 学生关系可以通过其他方式处理，这里只解除教师与班级的关联
+            classInfo.setHeadTeacherId(null);
+            int result = classMapper.updateById(classInfo);
+
+            if (result > 0) {
+                return ApiResult.success("成功取消班级", "成功取消班级");
+            } else {
+                return ApiResult.error("取消班级失败");
+            }
+        } catch (Exception e) {
+            System.err.println("取消班级失败: " + e.getMessage());
+            return ApiResult.error("取消班级失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取教师已选择的班级列表
+     */
+    @GetMapping("/my-classes")
+    @Operation(summary = "获取我的班级", description = "获取教师已选择的班级列表")
+    public ApiResult<List<Map<String, Object>>> getMyClasses(
+            @RequestHeader(value = "Authorization", required = false) String token) {
+        try {
+            // 从token中获取当前教师用户
+            Long teacherUserId = getUserIdFromToken(token);
+            if (teacherUserId == null) {
+                return ApiResult.error("未登录或token无效");
+            }
+
+            // 获取教师记录
+            LambdaQueryWrapper<Teacher> teacherWrapper = new LambdaQueryWrapper<>();
+            teacherWrapper.eq(Teacher::getUserId, teacherUserId);
+            Teacher teacher = teacherMapper.selectOne(teacherWrapper);
+            if (teacher == null) {
+                return ApiResult.error("教师记录不存在，请联系管理员");
+            }
+
+            // 查询该教师负责的所有班级
+            LambdaQueryWrapper<Class> classWrapper = new LambdaQueryWrapper<>();
+            classWrapper.eq(Class::getHeadTeacherId, teacher.getId());
+            classWrapper.eq(Class::getDeleted, 0);
+            classWrapper.eq(Class::getStatus, 1);
+
+            List<Class> classes = classMapper.selectList(classWrapper);
+
+            // 构建返回数据
+            List<Map<String, Object>> result = new ArrayList<>();
+            for (Class cls : classes) {
+                Map<String, Object> item = new HashMap<>();
+                item.put("id", cls.getId());
+                item.put("className", cls.getClassName());
+                item.put("grade", cls.getGrade());
+                item.put("academicYear", cls.getAcademicYear());
+                item.put("studentCount", cls.getStudentCount());
+
+                // 获取该班级的学生数量
+                LambdaQueryWrapper<Student> studentWrapper = new LambdaQueryWrapper<>();
+                studentWrapper.eq(Student::getClassId, cls.getId());
+                studentWrapper.eq(Student::getDeleted, 0);
+                long actualStudentCount = studentMapper.selectCount(studentWrapper);
+                item.put("actualStudentCount", actualStudentCount);
+
+                result.add(item);
+            }
+
+            return ApiResult.success(result);
+        } catch (Exception e) {
+            System.err.println("获取我的班级失败: " + e.getMessage());
+            return ApiResult.error("获取我的班级失败: " + e.getMessage());
         }
     }
 }

@@ -1,7 +1,30 @@
 <template>
   <div class="my-students">
+    <!-- 班级未选择提醒 -->
+    <el-row :gutter="20" v-if="showClassReminder">
+      <el-col :span="24">
+        <el-alert
+          title="⚠️ 您还没有选择负责的班级，请先选择班级才能管理学生"
+          type="warning"
+          :closable="false"
+          show-icon
+        >
+          <template #default>
+            <div style="margin-top: 8px;">
+              <el-button type="warning" size="small" @click="$router.push('/teacher/class-management')">
+                去选择班级
+              </el-button>
+              <span style="margin-left: 10px; color: #606266; font-size: 12px;">
+                选择班级后，您可以查看学生、审核申请等
+              </span>
+            </div>
+          </template>
+        </el-alert>
+      </el-col>
+    </el-row>
+
     <!-- 申请列表 -->
-    <el-card style="margin-bottom: 20px;">
+    <el-card style="margin-bottom: 20px;" v-if="!showClassReminder">
       <template #header>
         <div class="card-header">
           <span>📋 班级申请</span>
@@ -67,7 +90,7 @@
     </el-card>
 
     <!-- 我的学生列表 -->
-    <el-card>
+    <el-card v-if="!showClassReminder">
       <template #header>
         <div class="card-header">
           <span>👥 我的学生</span>
@@ -85,7 +108,7 @@
         </div>
       </template>
 
-      <el-table :data="filteredStudents" style="width: 100%" v-loading="loadingStudents">
+      <el-table :data="filteredStudents" style="width: 100%" v-loading="loadingStudents" v-if="studentList.length > 0">
         <el-table-column type="index" label="序号" width="60" align="center" />
         <el-table-column prop="studentNumber" label="学号" width="120" align="center" />
         <el-table-column prop="realName" label="姓名" width="120" align="center" />
@@ -114,8 +137,20 @@
         </el-table-column>
       </el-table>
 
-      <div v-if="filteredStudents.length === 0 && !loadingStudents" class="empty-state">
-        <el-empty description="暂无学生" />
+      <div v-if="studentList.length === 0 && !loadingStudents" class="empty-state">
+        <el-empty description="暂无学生">
+          <div>
+            <p style="margin-bottom: 10px;">您的班级还没有学生，请等待学生申请加入</p>
+            <el-button type="primary" @click="$router.push('/teacher/class-management')">
+              查看班级信息
+            </el-button>
+          </div>
+        </el-empty>
+      </div>
+
+      <!-- 当有数据但搜索无结果时 -->
+      <div v-if="studentList.length > 0 && filteredStudents.length === 0 && !loadingStudents" class="empty-state">
+        <el-empty description="没有找到匹配的学生" />
       </div>
 
       <div class="pagination">
@@ -176,7 +211,9 @@
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
-import { getPendingApplications, getTeacherApplications, reviewApplication, getTeacherStudents } from '@/api/classApplication'
+import { getPendingApplications, getTeacherApplications, reviewApplication } from '@/api/classApplication'
+import { getMyClasses } from '@/api/teacher'
+import { getTeacherStudents } from '@/api/classApplication'
 import { useUserStore } from '@/store/modules/user'
 
 const userStore = useUserStore()
@@ -184,6 +221,7 @@ const userStore = useUserStore()
 const loading = ref(false)
 const loadingStudents = ref(false)
 const activeTab = ref('pending')
+const showClassReminder = ref(false)
 
 // 申请相关
 const pendingApplications = ref([])
@@ -259,6 +297,14 @@ const formatTime = (time) => {
 
 // 加载待审核申请
 const loadApplications = async () => {
+  // 先检查是否有班级
+  const hasClasses = await checkTeacherClasses()
+  if (!hasClasses) {
+    pendingApplications.value = []
+    allApplications.value = []
+    return
+  }
+
   try {
     loading.value = true
     const teacherId = userStore.userInfo.id
@@ -338,8 +384,33 @@ const submitReview = async () => {
   }
 }
 
+// 检查教师是否有班级
+const checkTeacherClasses = async () => {
+  try {
+    const classes = await getMyClasses()
+    if (classes.length === 0) {
+      showClassReminder.value = true
+      return false
+    }
+    showClassReminder.value = false
+    return true
+  } catch (error) {
+    console.error('检查班级失败:', error)
+    showClassReminder.value = true
+    return false
+  }
+}
+
 // 加载我的学生
 const loadStudents = async () => {
+  // 先检查是否有班级
+  const hasClasses = await checkTeacherClasses()
+  if (!hasClasses) {
+    studentList.value = []
+    total.value = 0
+    return
+  }
+
   loadingStudents.value = true
   try {
     const params = {
@@ -348,11 +419,17 @@ const loadStudents = async () => {
       size: pageSize.value,
       keyword: searchKeyword.value
     }
-    const data = await getTeacherStudents(params)
-    studentList.value = data.records
-    total.value = data.total
+    const res = await getTeacherStudents(params)
+    studentList.value = res.records
+    total.value = res.total
   } catch (error) {
-    ElMessage.error('加载学生列表失败')
+    // 如果是因为没有学生，显示空状态而不是错误
+    if (error.message && error.message.includes('暂无')) {
+      studentList.value = []
+      total.value = 0
+    } else {
+      ElMessage.error('加载学生列表失败')
+    }
   } finally {
     loadingStudents.value = false
   }
@@ -386,9 +463,15 @@ const handleSizeChange = (val) => {
   loadStudents()
 }
 
-onMounted(() => {
-  loadApplications()
-  loadStudents()
+onMounted(async () => {
+  // 先检查班级状态
+  const hasClasses = await checkTeacherClasses()
+
+  // 只有在有班级的情况下才加载数据
+  if (hasClasses) {
+    loadApplications()
+    loadStudents()
+  }
 })
 </script>
 
